@@ -1,7 +1,7 @@
 use std::fs;
 
 use crate::crypto;
-use crate::error::{Result, SubSwapError};
+use crate::error::{validate_profile_name, Result, SubSwapError};
 use crate::paths::Paths;
 use crate::profile::Profile;
 use crate::profile::store::ProfileStore;
@@ -100,6 +100,7 @@ pub fn add_profile_from_codex(
     key: &[u8; 32],
     encrypt: bool,
 ) -> Result<()> {
+    validate_profile_name(name)?;
     // Check name doesn't already exist
     if store.index.get(name).is_some() {
         return Err(SubSwapError::ProfileExists(name.to_string()));
@@ -152,6 +153,7 @@ pub fn add_profile_from_path(
     key: &[u8; 32],
     encrypt: bool,
 ) -> Result<()> {
+    validate_profile_name(name)?;
     // Check name doesn't already exist
     if store.index.get(name).is_some() {
         return Err(SubSwapError::ProfileExists(name.to_string()));

@@ -3,7 +3,7 @@ use std::path::Path;
 use crate::config::AppConfig;
 use crate::crypto;
 use crate::crypto::keychain::{KeyStore, OsKeyStore};
-use crate::error::{Result, SubSwapError};
+use crate::error::{validate_profile_name, Result, SubSwapError};
 use crate::guard::{CodexGuard, OsGuard};
 use crate::paths::Paths;
 use crate::profile::store::ProfileStore;
@@ -56,7 +56,9 @@ fn cmd_list(paths: &Paths, verbose: bool) -> Result<()> {
             let note = profile.notes.as_deref().unwrap_or("");
             println!("{marker} {name}  (last used: {last_used})  {note}");
         } else {
-            println!("{marker} {name}");
+            let profile = store.index.get(name).unwrap();
+            let notes = profile.notes.as_deref().unwrap_or("");
+            println!("{marker} {name:<16} {notes}");
         }
     }
 
@@ -64,6 +66,7 @@ fn cmd_list(paths: &Paths, verbose: bool) -> Result<()> {
 }
 
 fn cmd_use(paths: &Paths, name: &str, force: bool) -> Result<()> {
+    validate_profile_name(name)?;
     let store = ProfileStore::load(paths)?;
 
     // Already active — no-op
@@ -94,6 +97,7 @@ fn cmd_use(paths: &Paths, name: &str, force: bool) -> Result<()> {
 }
 
 fn cmd_add(paths: &Paths, name: &str, from: Option<&str>, note: Option<String>) -> Result<()> {
+    validate_profile_name(name)?;
     let mut store = ProfileStore::load_or_init(paths)?;
     let config = AppConfig::load(paths)?;
     let keystore = OsKeyStore::new();
@@ -129,6 +133,7 @@ fn cmd_add(paths: &Paths, name: &str, from: Option<&str>, note: Option<String>) 
 }
 
 fn cmd_remove(paths: &Paths, name: &str) -> Result<()> {
+    validate_profile_name(name)?;
     let mut store = ProfileStore::load(paths)?;
 
     // remove() validates the profile exists and is not active
@@ -141,6 +146,8 @@ fn cmd_remove(paths: &Paths, name: &str) -> Result<()> {
 }
 
 fn cmd_rename(paths: &Paths, old: &str, new: &str) -> Result<()> {
+    validate_profile_name(old)?;
+    validate_profile_name(new)?;
     let mut store = ProfileStore::load(paths)?;
 
     // rename() validates old exists and new doesn't
@@ -153,6 +160,7 @@ fn cmd_rename(paths: &Paths, old: &str, new: &str) -> Result<()> {
 }
 
 fn cmd_note(paths: &Paths, name: &str, text: &str) -> Result<()> {
+    validate_profile_name(name)?;
     let mut store = ProfileStore::load(paths)?;
 
     store.index.set_note(name, Some(text.to_string()))?;
@@ -163,6 +171,7 @@ fn cmd_note(paths: &Paths, name: &str, text: &str) -> Result<()> {
 }
 
 fn cmd_decrypt(paths: &Paths, name: &str) -> Result<()> {
+    validate_profile_name(name)?;
     let config = AppConfig::load(paths)?;
     let keystore = OsKeyStore::new();
     let key = get_or_warn_key(&keystore, config.encryption_enabled)?;

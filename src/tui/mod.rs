@@ -62,7 +62,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, paths: &Paths) -> Result<()> 
             }
 
             match state.screen {
-                AppScreen::Main => handle_main(&mut state, key.code),
+                AppScreen::Main => handle_main(&mut state, paths, key.code)?,
                 AppScreen::ConfirmSwitch => {
                     handle_confirm_switch(&mut state, paths, key.code)?;
                 }
@@ -95,7 +95,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, paths: &Paths) -> Result<()> 
 
 // ── Key handlers ──────────────────────────────────────────────────────────────
 
-fn handle_main(state: &mut AppState, code: KeyCode) {
+fn handle_main(state: &mut AppState, paths: &Paths, code: KeyCode) -> Result<()> {
     match code {
         KeyCode::Char('q') | KeyCode::Esc => {
             state.should_quit = true;
@@ -147,12 +147,36 @@ fn handle_main(state: &mut AppState, code: KeyCode) {
         KeyCode::Char('v') => {
             if state.selected_name().is_some() {
                 state.pending_action = Some(Action::View);
-                state.screen = AppScreen::ViewDecrypt;
-                state.message = None;
+                handle_view(state, paths)?;
             }
         }
         _ => {}
     }
+    Ok(())
+}
+
+fn handle_view(state: &mut AppState, paths: &Paths) -> Result<()> {
+    let name = match state.selected_name() {
+        Some(n) => n.to_string(),
+        None => return Ok(()),
+    };
+
+    let config = AppConfig::load(paths)?;
+    let keystore = OsKeyStore::new();
+    let key = get_key(&keystore, config.encryption_enabled)?;
+
+    match switch::decrypt_profile_to_stdout(paths, &name, &key) {
+        Ok((auth_str, config_str)) => {
+            let output = format!("=== auth.json ===\n{auth_str}\n=== config.toml ===\n{config_str}");
+            state.decrypt_output = Some(output);
+            state.screen = AppScreen::ViewDecrypt;
+        }
+        Err(e) => {
+            state.message = Some(format!("Error: {e}"));
+        }
+    }
+
+    Ok(())
 }
 
 fn handle_confirm_switch(state: &mut AppState, paths: &Paths, code: KeyCode) -> Result<()> {

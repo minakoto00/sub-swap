@@ -64,6 +64,9 @@ pub fn run_first_launch(paths: &Paths) -> Result<()> {
         let (_key, _encryption_enabled) = setup_encryption(paths)?;
     }
 
+    // Always create profiles.json so the wizard does not re-run on next launch.
+    ProfileStore::load_or_init(paths)?;
+
     println!();
     println!("Run `sub-swap` for the interactive wizard or `sub-swap --help` for commands.");
     println!();

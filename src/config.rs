@@ -31,6 +31,13 @@ impl AppConfig {
         let path = paths.config_json();
         let data = serde_json::to_string_pretty(self)?;
         fs::write(&path, data)?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o600))?;
+        }
+
         Ok(())
     }
 }

@@ -13,6 +13,7 @@ pub enum SubSwapError {
     NoCodexConfig,
     CodexRunning(Vec<u32>),
     NotInitialized,
+    InvalidProfileName(String),
 }
 
 impl fmt::Display for SubSwapError {
@@ -43,11 +44,57 @@ impl fmt::Display for SubSwapError {
             Self::NotInitialized => {
                 write!(f, "sub-swap is not initialized. Run `sub-swap` to set up.")
             }
+            Self::InvalidProfileName(name) => {
+                write!(f, "Invalid profile name '{name}'. Names must be non-empty, alphanumeric (with hyphens and underscores allowed), and cannot contain path separators.")
+            }
         }
     }
 }
 
 impl std::error::Error for SubSwapError {}
+
+/// Validate that a profile name is safe to use as a filesystem path component.
+///
+/// Rules:
+/// - Must be non-empty
+/// - Must not contain `/`, `\`, or `..`
+/// - Must not start with `.`
+/// - Characters must be alphanumeric, `-`, or `_`
+pub fn validate_profile_name(name: &str) -> Result<()> {
+    if name.is_empty() {
+        return Err(SubSwapError::InvalidProfileName(name.to_string()));
+    }
+    if name.contains('/') || name.contains('\\') || name.contains("..") || name.starts_with('.') {
+        return Err(SubSwapError::InvalidProfileName(name.to_string()));
+    }
+    // Only allow alphanumeric, hyphens, underscores
+    if !name.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+        return Err(SubSwapError::InvalidProfileName(name.to_string()));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_valid_profile_names() {
+        assert!(validate_profile_name("work").is_ok());
+        assert!(validate_profile_name("my-profile").is_ok());
+        assert!(validate_profile_name("test_123").is_ok());
+    }
+
+    #[test]
+    fn test_invalid_profile_names() {
+        assert!(validate_profile_name("").is_err());
+        assert!(validate_profile_name("../etc").is_err());
+        assert!(validate_profile_name("foo/bar").is_err());
+        assert!(validate_profile_name("foo\\bar").is_err());
+        assert!(validate_profile_name(".hidden").is_err());
+        assert!(validate_profile_name("has space").is_err());
+    }
+}
 
 impl From<io::Error> for SubSwapError {
     fn from(e: io::Error) -> Self {

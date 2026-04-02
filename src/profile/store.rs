@@ -31,8 +31,16 @@ impl ProfileStore {
     }
 
     pub fn save(&self, paths: &Paths) -> Result<()> {
+        let path = paths.profiles_json();
         let json = serde_json::to_string_pretty(&self.index)?;
-        fs::write(paths.profiles_json(), json)?;
+        fs::write(&path, json)?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o600))?;
+        }
+
         Ok(())
     }
 
