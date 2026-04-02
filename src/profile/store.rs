@@ -262,4 +262,18 @@ mod tests {
         assert!(!old_dir.exists());
         assert!(paths.profile_dir("newname").exists());
     }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_saved_files_have_restricted_permissions() {
+        let (_tmp, paths) = setup();
+        ProfileStore::save_profile_files(&paths, "secure", b"auth", b"config", false).unwrap();
+
+        use std::os::unix::fs::PermissionsExt;
+        let auth_perms = std::fs::metadata(paths.profile_dir("secure").join("auth.json"))
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(auth_perms & 0o777, 0o600);
+    }
 }
