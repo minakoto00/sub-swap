@@ -1,0 +1,98 @@
+# Requirements: sub-swap
+
+**Defined:** 2026-04-02
+**Core Value:** Secure, frictionless switching between multiple Codex profiles — inactive credentials always encrypted, switching atomic, no network access required.
+
+## v1.0 Requirements
+
+Requirements for harness engineering alignment. Each maps to roadmap phases.
+
+### Code Quality
+
+- [ ] **QUAL-01**: Cargo.toml has a `[lints]` table with `unsafe_code = "forbid"`, `clippy::all = "warn"`, `clippy::pedantic = "warn"` (with targeted allows for intentional patterns)
+- [ ] **QUAL-02**: `rustfmt.toml` exists with `edition = "2021"` and `max_width = 100` (minimal config to avoid reformatting churn)
+- [ ] **QUAL-03**: `clippy.toml` exists with MSRV setting and cognitive-complexity threshold
+- [ ] **QUAL-04**: `src/lib.rs` exists as a thin re-export module enabling structural tests and `cargo doc`
+
+### Architectural Enforcement
+
+- [ ] **ARCH-01**: `tests/arch.rs` exists with structural tests validating module dependency directions and layer boundaries
+- [ ] **ARCH-02**: Structural test enforces that `crypto/` module has no filesystem I/O and no side effects (pure functions only)
+- [ ] **ARCH-03**: Structural test verifies no network crates exist in the dependency tree
+
+### Observability & Agent Feedback
+
+- [ ] **OBSV-01**: `justfile` exists with standardized commands (`check`, `test`, `lint`, `fmt`, `validate`)
+- [ ] **OBSV-02**: `just validate` runs fmt check + clippy + test + structural tests in sequence, stops on first failure with clear output
+- [ ] **OBSV-03**: `HEALTH.md` exists as a machine-readable quality score grading each domain (crypto, profile, TUI, docs) with status indicators
+- [ ] **OBSV-04**: Structural test failure messages include agent-readable remediation instructions explaining HOW to fix the violation
+
+### Documentation
+
+- [ ] **DOCS-01**: `docs/ARCHITECTURE.md` describes module layout, dependency graph, and layer boundaries
+- [ ] **DOCS-02**: `docs/SECURITY.md` documents encryption model, key management, threat model, and file permissions
+- [ ] **DOCS-03**: `docs/TESTING.md` documents test strategy, coverage approach, and how to add new tests
+- [ ] **DOCS-04**: `docs/decisions/` directory contains ADRs for key settled choices (encryption, path injection, trait abstractions)
+- [ ] **DOCS-05**: CLAUDE.md is restructured as a map (<80 lines) with Build & Test Commands section retained and pointers to docs/
+
+## v2 Requirements
+
+Deferred to future milestone. Tracked but not in current roadmap.
+
+### CI/CD
+
+- **CICD-01**: GitHub Actions workflow for `cargo test` on every PR
+- **CICD-02**: GitHub Actions workflow for `cargo clippy` and `cargo fmt --check`
+- **CICD-03**: Weekly security audit via `cargo-audit` or `cargo-deny`
+- **CICD-04**: `Swatinem/rust-cache@v2` for fast CI builds
+
+### Quality Automation
+
+- **AUTO-01**: Coverage threshold enforcement (`cargo tarpaulin --fail-under 70`)
+- **AUTO-02**: Doc-gardening agent for stale documentation detection
+- **AUTO-03**: Recurring quality score updates via automated agent runs
+
+## Out of Scope
+
+Explicitly excluded. Documented to prevent scope creep.
+
+| Feature | Reason |
+|---------|--------|
+| CI/CD pipeline | User deferred to future milestone |
+| TUI test infrastructure | Complex ratatui testing is a separate concern |
+| Property-based testing | Not a harness engineering requirement |
+| `cargo doc --deny missing_docs` | Significant doc comment additions needed; defer |
+| Feature additions (new commands) | This milestone is infrastructure/quality only |
+| Remote sync | Not part of core product |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| QUAL-01 | — | Pending |
+| QUAL-02 | — | Pending |
+| QUAL-03 | — | Pending |
+| QUAL-04 | — | Pending |
+| ARCH-01 | — | Pending |
+| ARCH-02 | — | Pending |
+| ARCH-03 | — | Pending |
+| OBSV-01 | — | Pending |
+| OBSV-02 | — | Pending |
+| OBSV-03 | — | Pending |
+| OBSV-04 | — | Pending |
+| DOCS-01 | — | Pending |
+| DOCS-02 | — | Pending |
+| DOCS-03 | — | Pending |
+| DOCS-04 | — | Pending |
+| DOCS-05 | — | Pending |
+
+**Coverage:**
+- v1.0 requirements: 16 total
+- Mapped to phases: 0
+- Unmapped: 16 ⚠️
+
+---
+*Requirements defined: 2026-04-02*
+*Last updated: 2026-04-02 after initial definition*
