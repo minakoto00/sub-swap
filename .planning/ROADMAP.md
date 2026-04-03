@@ -36,7 +36,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. `cargo build --lib` succeeds after `src/lib.rs` is added alongside `src/main.rs`
   4. `just validate` runs fmt-check, clippy, and test in sequence and stops on first failure with clear output
   5. `just check`, `just test`, `just lint`, and `just fmt` each work as standalone commands
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Fix clippy violations and create lint/format config files (rustfmt.toml, clippy.toml, Cargo.toml [lints])
+- [ ] 01-02-PLAN.md — Create lib.rs library target, justfile command runner, and apply cargo fmt
 
 ### Phase 2: Architectural Enforcement
 **Goal**: Module boundary violations surface as deterministic `cargo test` failures with messages that tell an agent exactly what to change and why
@@ -77,7 +81,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Code Quality Foundation | 0/TBD | Not started | - |
+| 1. Code Quality Foundation | 0/2 | Planning complete | - |
 | 2. Architectural Enforcement | 0/TBD | Not started | - |
 | 3. Documentation Knowledge Base | 0/TBD | Not started | - |
 | 4. Agent Entry Point | 0/TBD | Not started | - |
