@@ -3,8 +3,8 @@ use std::fs;
 use crate::crypto;
 use crate::error::{validate_profile_name, Result, SubSwapError};
 use crate::paths::Paths;
-use crate::profile::Profile;
 use crate::profile::store::ProfileStore;
+use crate::profile::Profile;
 
 /// Switch the active profile to `target`.
 ///
@@ -235,8 +235,8 @@ pub fn decrypt_profile_to_stdout(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::profile::Profile;
     use crate::profile::store::ProfileStore;
+    use crate::profile::Profile;
     use tempfile::TempDir;
 
     fn setup_with_profiles() -> (TempDir, Paths, [u8; 32]) {
@@ -253,7 +253,9 @@ mod tests {
 
         // Create profile index with "work" as active
         let mut store = ProfileStore::init(&paths).unwrap();
-        store.index.add(Profile::new("work", Some("Work profile".into())));
+        store
+            .index
+            .add(Profile::new("work", Some("Work profile".into())));
         store.index.set_active("work");
         store.save(&paths).unwrap();
 
@@ -276,7 +278,9 @@ mod tests {
             false,
         )
         .unwrap();
-        store.index.add(Profile::new("personal", Some("Personal".into())));
+        store
+            .index
+            .add(Profile::new("personal", Some("Personal".into())));
         store.save(&paths).unwrap();
 
         let key = crypto::generate_key();
@@ -335,7 +339,10 @@ mod tests {
 
         // "work" is already active — should return Ok without changing anything
         let result = switch_profile(&paths, "work", &key, false);
-        assert!(result.is_ok(), "switching to already-active profile should be Ok");
+        assert!(
+            result.is_ok(),
+            "switching to already-active profile should be Ok"
+        );
 
         let store = ProfileStore::load(&paths).unwrap();
         assert_eq!(store.index.active_profile.as_deref(), Some("work"));
@@ -346,7 +353,10 @@ mod tests {
         let (_tmp, paths, key) = setup_with_profiles();
 
         let result = switch_profile(&paths, "nonexistent", &key, false);
-        assert!(result.is_err(), "switching to nonexistent profile should fail");
+        assert!(
+            result.is_err(),
+            "switching to nonexistent profile should fail"
+        );
 
         match result.unwrap_err() {
             SubSwapError::ProfileNotFound(name) => assert_eq!(name, "nonexistent"),
@@ -380,7 +390,15 @@ mod tests {
         let mut store = ProfileStore::load(&paths).unwrap();
 
         // Add a new profile called "first"
-        add_profile_from_codex(&paths, &mut store, "first", Some("First profile".into()), &key, true).unwrap();
+        add_profile_from_codex(
+            &paths,
+            &mut store,
+            "first",
+            Some("First profile".into()),
+            &key,
+            true,
+        )
+        .unwrap();
 
         // Reload store to confirm persistence
         let reloaded = ProfileStore::load(&paths).unwrap();

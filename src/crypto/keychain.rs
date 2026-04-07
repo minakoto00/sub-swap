@@ -54,8 +54,8 @@ impl Default for OsKeyStore {
 
 impl KeyStore for OsKeyStore {
     fn get_key(&self) -> Result<[u8; 32]> {
-        let entry = Entry::new(SERVICE, ACCOUNT)
-            .map_err(|e| SubSwapError::Keychain(e.to_string()))?;
+        let entry =
+            Entry::new(SERVICE, ACCOUNT).map_err(|e| SubSwapError::Keychain(e.to_string()))?;
 
         let raw = entry
             .get_password()
@@ -65,15 +65,14 @@ impl KeyStore for OsKeyStore {
     }
 
     fn set_key(&self, key: &[u8; 32]) -> Result<()> {
-        let entry = Entry::new(SERVICE, ACCOUNT)
-            .map_err(|e| SubSwapError::Keychain(e.to_string()))?;
+        let entry =
+            Entry::new(SERVICE, ACCOUNT).map_err(|e| SubSwapError::Keychain(e.to_string()))?;
 
         let encoded = encode_key(key);
         entry
             .set_password(&encoded)
             .map_err(|e| SubSwapError::Keychain(format!("failed to store key: {e}")))
     }
-
 }
 
 // ── MockKeyStore ──────────────────────────────────────────────────────────────
@@ -133,7 +132,10 @@ mod tests {
     fn test_mock_keystore_get_without_set_fails() {
         let store = MockKeyStore::new();
         let result = store.get_key();
-        assert!(result.is_err(), "get_key on empty store should return error");
+        assert!(
+            result.is_err(),
+            "get_key on empty store should return error"
+        );
     }
 
     #[test]
@@ -145,8 +147,13 @@ mod tests {
         store.set_key(&key1).expect("set key1 should succeed");
         store.set_key(&key2).expect("set key2 should succeed");
 
-        let retrieved = store.get_key().expect("get_key after overwrite should succeed");
+        let retrieved = store
+            .get_key()
+            .expect("get_key after overwrite should succeed");
         assert_eq!(retrieved, key2, "should return latest key after overwrite");
-        assert_ne!(retrieved, key1, "should not return first key after overwrite");
+        assert_ne!(
+            retrieved, key1,
+            "should not return first key after overwrite"
+        );
     }
 }

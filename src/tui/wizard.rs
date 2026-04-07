@@ -56,9 +56,7 @@ pub fn run_first_launch(paths: &Paths) -> Result<()> {
         }
     } else {
         println!("No Codex configuration found.");
-        println!(
-            "Once you have configured Codex, run `sub-swap add <name>` to create a profile."
-        );
+        println!("Once you have configured Codex, run `sub-swap add <name>` to create a profile.");
         println!();
 
         let (_key, _encryption_enabled) = setup_encryption(paths)?;
@@ -101,7 +99,9 @@ fn setup_encryption(paths: &Paths) -> Result<([u8; 32], bool)> {
 
         Ok((key, true))
     } else {
-        println!("Skipping encryption setup. You can enable it later with `sub-swap config --encrypt`.");
+        println!(
+            "Skipping encryption setup. You can enable it later with `sub-swap config --encrypt`."
+        );
 
         let config = AppConfig {
             encryption_enabled: false,
@@ -119,12 +119,7 @@ fn prompt_yn(question: &str, default_yes: bool) -> Result<bool> {
     io::stdout().flush()?;
 
     let stdin = io::stdin();
-    let line = stdin
-        .lock()
-        .lines()
-        .next()
-        .transpose()?
-        .unwrap_or_default();
+    let line = stdin.lock().lines().next().transpose()?.unwrap_or_default();
     let trimmed = line.trim().to_lowercase();
 
     let answer = match trimmed.as_str() {
@@ -144,12 +139,7 @@ fn prompt_string(question: &str, default: Option<&str>) -> Result<String> {
     io::stdout().flush()?;
 
     let stdin = io::stdin();
-    let line = stdin
-        .lock()
-        .lines()
-        .next()
-        .transpose()?
-        .unwrap_or_default();
+    let line = stdin.lock().lines().next().transpose()?.unwrap_or_default();
     let trimmed = line.trim().to_string();
 
     if trimmed.is_empty() {
@@ -164,12 +154,7 @@ fn prompt_string_optional(question: &str) -> Result<Option<String>> {
     io::stdout().flush()?;
 
     let stdin = io::stdin();
-    let line = stdin
-        .lock()
-        .lines()
-        .next()
-        .transpose()?
-        .unwrap_or_default();
+    let line = stdin.lock().lines().next().transpose()?.unwrap_or_default();
     let trimmed = line.trim().to_string();
 
     if trimmed.is_empty() {

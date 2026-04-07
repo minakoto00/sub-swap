@@ -23,13 +23,19 @@ impl fmt::Display for SubSwapError {
             Self::Crypto(msg) => write!(f, "Encryption error: {msg}"),
             Self::Keychain(msg) => write!(f, "Keychain error: {msg}"),
             Self::ProfileNotFound(name) => {
-                write!(f, "Profile '{name}' not found. Run `sub-swap list` to see available profiles.")
+                write!(
+                    f,
+                    "Profile '{name}' not found. Run `sub-swap list` to see available profiles."
+                )
             }
             Self::ProfileExists(name) => {
                 write!(f, "Profile '{name}' already exists. Use a different name or `sub-swap remove {name}` first.")
             }
             Self::ActiveProfile(name) => {
-                write!(f, "Cannot remove the active profile '{name}'. Switch to another profile first.")
+                write!(
+                    f,
+                    "Cannot remove the active profile '{name}'. Switch to another profile first."
+                )
             }
             Self::NoCodexConfig => write!(f, "No auth.json found in ~/.codex/. Nothing to import."),
             Self::CodexRunning(pids) => {
@@ -64,7 +70,10 @@ pub fn validate_profile_name(name: &str) -> Result<()> {
         return Err(SubSwapError::InvalidProfileName(name.to_string()));
     }
     // Only allow alphanumeric, hyphens, underscores
-    if !name.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+    if !name
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+    {
         return Err(SubSwapError::InvalidProfileName(name.to_string()));
     }
     Ok(())

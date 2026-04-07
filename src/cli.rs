@@ -14,7 +14,11 @@ use crate::profile::switch;
 // ── CLI types ─────────────────────────────────────────────────────────────────
 
 #[derive(Parser)]
-#[command(name = "sub-swap", version, about = "Manage multiple ~/.codex/ profiles")]
+#[command(
+    name = "sub-swap",
+    version,
+    about = "Manage multiple ~/.codex/ profiles"
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,

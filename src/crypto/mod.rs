@@ -131,7 +131,10 @@ mod tests {
         let enc1 = encrypt(plaintext, &key).expect("first encrypt should succeed");
         let enc2 = encrypt(plaintext, &key).expect("second encrypt should succeed");
         // Different nonces produce different ciphertext
-        assert_ne!(enc1, enc2, "two encryptions of same plaintext should differ");
+        assert_ne!(
+            enc1, enc2,
+            "two encryptions of same plaintext should differ"
+        );
     }
 
     #[test]

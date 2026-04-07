@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use crate::error::Result;
 use crate::paths::Paths;
+use serde::{Deserialize, Serialize};
 use std::fs;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,8 +45,8 @@ impl AppConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
     use crate::paths::Paths;
+    use tempfile::TempDir;
 
     #[test]
     fn test_default_config_has_encryption_enabled() {
@@ -59,7 +59,9 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let paths = Paths::from_temp(tmp.path());
         std::fs::create_dir_all(&paths.sub_swap_dir).unwrap();
-        let config = AppConfig { encryption_enabled: false };
+        let config = AppConfig {
+            encryption_enabled: false,
+        };
         config.save(&paths).unwrap();
         let loaded = AppConfig::load(&paths).unwrap();
         assert!(!loaded.encryption_enabled);

@@ -167,7 +167,8 @@ fn handle_view(state: &mut AppState, paths: &Paths) -> Result<()> {
 
     match switch::decrypt_profile_to_stdout(paths, &name, &key) {
         Ok((auth_str, config_str)) => {
-            let output = format!("=== auth.json ===\n{auth_str}\n=== config.toml ===\n{config_str}");
+            let output =
+                format!("=== auth.json ===\n{auth_str}\n=== config.toml ===\n{config_str}");
             state.decrypt_output = Some(output);
             state.screen = AppScreen::ViewDecrypt;
         }
@@ -195,7 +196,8 @@ fn handle_confirm_switch(state: &mut AppState, paths: &Paths, code: KeyCode) -> 
                     // Show ForceSwitch confirmation instead
                     state.screen = AppScreen::ForceSwitch;
                     state.message = Some(
-                        "Codex is running! Press y to force switch anyway, n to cancel.".to_string(),
+                        "Codex is running! Press y to force switch anyway, n to cancel."
+                            .to_string(),
                     );
                     return Ok(());
                 }
@@ -288,7 +290,9 @@ fn handle_confirm_delete(state: &mut AppState, paths: &Paths, code: KeyCode) -> 
                     state.active_profile.clone_from(&store.index.active_profile);
 
                     // Clamp selection
-                    if state.selected >= state.profile_names.len() && !state.profile_names.is_empty() {
+                    if state.selected >= state.profile_names.len()
+                        && !state.profile_names.is_empty()
+                    {
                         state.selected = state.profile_names.len() - 1;
                     }
                     state.message = Some(format!("Deleted '{name}'."));
@@ -464,7 +468,12 @@ fn render(f: &mut Frame, state: &AppState, store: &ProfileStore) {
         }
         AppScreen::InputNote => {
             render_main_layout(f, state, store, area);
-            render_input_overlay(f, state, area, "Enter note (Enter to save, Esc to cancel): ");
+            render_input_overlay(
+                f,
+                state,
+                area,
+                "Enter note (Enter to save, Esc to cancel): ",
+            );
         }
         AppScreen::ConfirmSwitch => {
             render_main_layout(f, state, store, area);
@@ -560,21 +569,15 @@ fn render_profile_list(f: &mut Frame, state: &AppState, area: Rect) {
 
 fn render_key_hints(f: &mut Frame, area: Rect) {
     let hints = "Enter: switch  a: add  r: rename  d: delete  n: note  v: view  q: quit";
-    let paragraph = Paragraph::new(hints).block(
-        Block::default()
-            .title("Keys")
-            .borders(Borders::ALL),
-    );
+    let paragraph =
+        Paragraph::new(hints).block(Block::default().title("Keys").borders(Borders::ALL));
     f.render_widget(paragraph, area);
 }
 
 fn render_status_bar(f: &mut Frame, state: &AppState, area: Rect) {
     let msg = state.message.as_deref().unwrap_or("");
-    let paragraph = Paragraph::new(msg).block(
-        Block::default()
-            .title("Status")
-            .borders(Borders::ALL),
-    );
+    let paragraph =
+        Paragraph::new(msg).block(Block::default().title("Status").borders(Borders::ALL));
     f.render_widget(paragraph, area);
 }
 

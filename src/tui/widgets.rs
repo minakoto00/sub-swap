@@ -35,7 +35,8 @@ pub struct AppState {
 
 impl AppState {
     pub fn from_index(index: &ProfileIndex) -> Self {
-        let profile_names: Vec<String> = index.names().into_iter().map(ToString::to_string).collect();
+        let profile_names: Vec<String> =
+            index.names().into_iter().map(ToString::to_string).collect();
         let active_profile = index.active_profile.clone();
         Self {
             screen: AppScreen::Main,

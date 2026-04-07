@@ -169,7 +169,9 @@ mod tests {
 
         // Create a store, add a profile, save, then reload
         let mut store = ProfileStore::init(&paths).unwrap();
-        store.index.add(Profile::new("work", Some("Work account".to_string())));
+        store
+            .index
+            .add(Profile::new("work", Some("Work account".to_string())));
         store.save(&paths).unwrap();
 
         let loaded = ProfileStore::load(&paths).unwrap();
@@ -259,8 +261,7 @@ mod tests {
         let auth_data = b"{}";
         let config_data = b"";
 
-        ProfileStore::save_profile_files(&paths, "oldname", auth_data, config_data, false)
-            .unwrap();
+        ProfileStore::save_profile_files(&paths, "oldname", auth_data, config_data, false).unwrap();
 
         let old_dir = paths.profile_dir("oldname");
         assert!(old_dir.exists());
