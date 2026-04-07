@@ -45,7 +45,7 @@ Secure, frictionless switching between multiple Codex profiles — inactive cred
 - [ ] Restructure CLAUDE.md as map with progressive disclosure
 - [ ] Structured docs/ knowledge base (ARCHITECTURE.md, SECURITY.md, TESTING.md)
 - [ ] GitHub Actions CI/CD (test, lint, security audit)
-- [ ] Mechanical code quality enforcement (rustfmt, clippy, Cargo lints)
+- [x] Mechanical code quality enforcement (rustfmt, clippy, Cargo lints) — Validated in Phase 1: code-quality-foundation
 - [ ] Architectural boundary enforcement via structural tests
 - [ ] Design decisions documentation
 
@@ -100,4 +100,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-02 after milestone v1.0 initialization*
+*Last updated: 2026-04-07 after Phase 1 (code-quality-foundation) completion*
