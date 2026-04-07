@@ -1,24 +1,25 @@
 use std::path::PathBuf;
 
+use crate::error::{Result, SubSwapError};
+
 #[derive(Debug, Clone)]
 pub struct Paths {
     pub codex_dir: PathBuf,
     pub sub_swap_dir: PathBuf,
 }
 
-impl Default for Paths {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Paths {
-    pub fn new() -> Self {
-        let home = dirs::home_dir().expect("Could not determine home directory");
-        Self {
+    pub fn new() -> Result<Self> {
+        let home = dirs::home_dir().ok_or_else(|| {
+            SubSwapError::Io(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "Could not determine home directory",
+            ))
+        })?;
+        Ok(Self {
             codex_dir: home.join(".codex"),
             sub_swap_dir: home.join(".sub-swap"),
-        }
+        })
     }
 
     pub fn profiles_dir(&self) -> PathBuf {

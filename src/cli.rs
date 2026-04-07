@@ -71,7 +71,7 @@ pub enum ConfigAction {
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 pub fn run(cli: Cli) -> Result<()> {
-    let paths = Paths::new();
+    let paths = Paths::new()?;
 
     match cli.command {
         None => {
