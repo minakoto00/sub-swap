@@ -162,6 +162,13 @@ fn cmd_add(paths: &Paths, name: &str, from: Option<&str>, note: Option<String>) 
     let key = get_or_default_key(&keystore, config.encryption_enabled)?;
 
     if let Some(source_path) = from {
+        let source = Path::new(source_path);
+        if !source.is_dir() {
+            return Err(SubSwapError::Io(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Source path '{source_path}' is not a directory"),
+            )));
+        }
         switch::add_profile_from_path(
             paths,
             &mut store,
