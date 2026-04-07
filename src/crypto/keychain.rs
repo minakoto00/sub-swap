@@ -7,7 +7,7 @@ const ACCOUNT: &str = "encryption-key";
 fn encode_key(key: &[u8; 32]) -> String {
     key.iter().fold(String::with_capacity(64), |mut s, b| {
         use std::fmt::Write;
-        let _ = write!(s, "{b:02x}");
+        write!(s, "{b:02x}").expect("writing to String is infallible");
         s
     })
 }
