@@ -36,6 +36,16 @@ pub trait KeyStore {
     fn set_key(&self, key: &[u8; 32]) -> Result<()>;
 }
 
+/// Return the encryption key when needed, or a zeroed dummy key when encryption
+/// is disabled. This avoids reaching the OS keychain when no encryption is
+/// configured.
+pub fn get_or_default_key(keystore: &impl KeyStore, needed: bool) -> Result<[u8; 32]> {
+    if !needed {
+        return Ok([0u8; 32]);
+    }
+    keystore.get_key()
+}
+
 // ── OsKeyStore ────────────────────────────────────────────────────────────────
 
 pub struct OsKeyStore;

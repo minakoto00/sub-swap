@@ -13,7 +13,7 @@ use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph};
 use ratatui::Terminal;
 
 use crate::config::AppConfig;
-use crate::crypto::keychain::{KeyStore, OsKeyStore};
+use crate::crypto::keychain::{get_or_default_key, OsKeyStore};
 use crate::error::{Result, SubSwapError};
 use crate::guard::{CodexGuard, OsGuard};
 use crate::paths::Paths;
@@ -163,7 +163,7 @@ fn handle_view(state: &mut AppState, paths: &Paths) -> Result<()> {
 
     let config = AppConfig::load(paths)?;
     let keystore = OsKeyStore::new();
-    let key = get_key(&keystore, config.encryption_enabled)?;
+    let key = get_or_default_key(&keystore, config.encryption_enabled)?;
 
     match switch::decrypt_profile_to_stdout(paths, &name, &key) {
         Ok((auth_str, config_str)) => {
@@ -239,7 +239,7 @@ fn handle_force_switch(state: &mut AppState, paths: &Paths, code: KeyCode) -> Re
 fn do_switch(state: &mut AppState, paths: &Paths, name: &str) -> Result<()> {
     let config = AppConfig::load(paths)?;
     let keystore = OsKeyStore::new();
-    let key = get_key(&keystore, config.encryption_enabled)?;
+    let key = get_or_default_key(&keystore, config.encryption_enabled)?;
 
     match switch::switch_profile(paths, name, &key, config.encryption_enabled) {
         Ok(()) => {
@@ -328,7 +328,7 @@ fn handle_input_name(state: &mut AppState, paths: &Paths, code: KeyCode) -> Resu
                 Some(Action::Add) => {
                     let config = AppConfig::load(paths)?;
                     let keystore = OsKeyStore::new();
-                    let key = get_key(&keystore, config.encryption_enabled)?;
+                    let key = get_or_default_key(&keystore, config.encryption_enabled)?;
                     let mut store = ProfileStore::load_or_init(paths)?;
 
                     match switch::add_profile_from_codex(
@@ -627,11 +627,3 @@ fn centered_rect(percent_x: u16, height: u16, area: Rect) -> Rect {
     horizontal_chunks[1]
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-fn get_key(keystore: &OsKeyStore, needed: bool) -> Result<[u8; 32]> {
-    if !needed {
-        return Ok([0u8; 32]);
-    }
-    keystore.get_key()
-}

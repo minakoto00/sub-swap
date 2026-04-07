@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 
 use crate::config::AppConfig;
 use crate::crypto;
-use crate::crypto::keychain::{KeyStore, OsKeyStore};
+use crate::crypto::keychain::{get_or_default_key, OsKeyStore};
 use crate::error::{validate_profile_name, Result, SubSwapError};
 use crate::guard::{CodexGuard, OsGuard};
 use crate::paths::Paths;
@@ -146,7 +146,7 @@ fn cmd_use(paths: &Paths, name: &str, force: bool) -> Result<()> {
 
     let config = AppConfig::load(paths)?;
     let keystore = OsKeyStore::new();
-    let key = get_or_warn_key(&keystore, config.encryption_enabled)?;
+    let key = get_or_default_key(&keystore, config.encryption_enabled)?;
 
     switch::switch_profile(paths, name, &key, config.encryption_enabled)?;
     println!("Switched to profile '{name}'.");
@@ -159,7 +159,7 @@ fn cmd_add(paths: &Paths, name: &str, from: Option<&str>, note: Option<String>) 
     let mut store = ProfileStore::load_or_init(paths)?;
     let config = AppConfig::load(paths)?;
     let keystore = OsKeyStore::new();
-    let key = get_or_warn_key(&keystore, config.encryption_enabled)?;
+    let key = get_or_default_key(&keystore, config.encryption_enabled)?;
 
     if let Some(source_path) = from {
         switch::add_profile_from_path(
@@ -229,7 +229,7 @@ fn cmd_decrypt(paths: &Paths, name: &str) -> Result<()> {
     validate_profile_name(name)?;
     let config = AppConfig::load(paths)?;
     let keystore = OsKeyStore::new();
-    let key = get_or_warn_key(&keystore, config.encryption_enabled)?;
+    let key = get_or_default_key(&keystore, config.encryption_enabled)?;
 
     let (auth_str, config_str) = switch::decrypt_profile_to_stdout(paths, name, &key)?;
 
@@ -265,7 +265,7 @@ fn cmd_config(paths: &Paths, action: ConfigAction) -> Result<()> {
                         return Ok(());
                     }
                     let keystore = OsKeyStore::new();
-                    let key_bytes = get_or_warn_key(&keystore, new_val)?;
+                    let key_bytes = get_or_default_key(&keystore, new_val)?;
                     toggle_all_profiles(paths, &key_bytes, new_val)?;
                     config.encryption_enabled = new_val;
                     config.save(paths)?;
@@ -325,12 +325,3 @@ fn toggle_all_profiles(paths: &Paths, key: &[u8; 32], encrypt: bool) -> Result<(
     Ok(())
 }
 
-/// Return the key from the keystore when encryption is needed.
-/// When encryption is disabled, return a dummy zeroed key so callers still
-/// receive a `[u8; 32]` without having to reach the keychain.
-fn get_or_warn_key(keystore: &OsKeyStore, needed: bool) -> Result<[u8; 32]> {
-    if !needed {
-        return Ok([0u8; 32]);
-    }
-    keystore.get_key()
-}
