@@ -3,7 +3,7 @@ use std::io::{self, BufRead, Write};
 use crate::config::AppConfig;
 use crate::crypto;
 use crate::crypto::keychain::{KeyStore, OsKeyStore};
-use crate::error::Result;
+use crate::error::{validate_profile_name, Result};
 use crate::paths::Paths;
 use crate::profile::store::ProfileStore;
 use crate::profile::switch;
@@ -29,7 +29,16 @@ pub fn run_first_launch(paths: &Paths) -> Result<()> {
         let save_profile = prompt_yn("Save it as your first profile?", true)?;
 
         if save_profile {
-            let name = prompt_string("Profile name", Some("default"))?;
+            let name = loop {
+                let input = prompt_string("Profile name", Some("default"))?;
+                match validate_profile_name(&input) {
+                    Ok(()) => break input,
+                    Err(e) => {
+                        println!("{e}");
+                        println!("Please try again.");
+                    }
+                }
+            };
             let note = prompt_string_optional("Optional note (press Enter to skip)")?;
 
             let (key, encryption_enabled) = setup_encryption(paths)?;
