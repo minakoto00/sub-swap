@@ -156,10 +156,10 @@ fn handle_main(state: &mut AppState, paths: &Paths, code: KeyCode) -> Result<()>
 }
 
 fn handle_view(state: &mut AppState, paths: &Paths) -> Result<()> {
-    let name = match state.selected_name() {
-        Some(n) => n.to_string(),
-        None => return Ok(()),
+    let Some(n) = state.selected_name() else {
+        return Ok(());
     };
+    let name = n.to_string();
 
     let config = AppConfig::load(paths)?;
     let keystore = OsKeyStore::new();
@@ -182,13 +182,11 @@ fn handle_view(state: &mut AppState, paths: &Paths) -> Result<()> {
 fn handle_confirm_switch(state: &mut AppState, paths: &Paths, code: KeyCode) -> Result<()> {
     match code {
         KeyCode::Char('y') | KeyCode::Enter => {
-            let name = match state.selected_name() {
-                Some(n) => n.to_string(),
-                None => {
-                    state.screen = AppScreen::Main;
-                    return Ok(());
-                }
+            let Some(n) = state.selected_name() else {
+                state.screen = AppScreen::Main;
+                return Ok(());
             };
+            let name = n.to_string();
 
             // Check process guard
             let guard = OsGuard::new();
@@ -219,13 +217,11 @@ fn handle_confirm_switch(state: &mut AppState, paths: &Paths, code: KeyCode) -> 
 fn handle_force_switch(state: &mut AppState, paths: &Paths, code: KeyCode) -> Result<()> {
     match code {
         KeyCode::Char('y') | KeyCode::Enter => {
-            let name = match state.selected_name() {
-                Some(n) => n.to_string(),
-                None => {
-                    state.screen = AppScreen::Main;
-                    return Ok(());
-                }
+            let Some(n) = state.selected_name() else {
+                state.screen = AppScreen::Main;
+                return Ok(());
             };
+            let name = n.to_string();
             do_switch(state, paths, &name)?;
         }
         KeyCode::Char('n') | KeyCode::Esc => {
@@ -251,9 +247,9 @@ fn do_switch(state: &mut AppState, paths: &Paths, name: &str) -> Result<()> {
                 .index
                 .names()
                 .into_iter()
-                .map(|s| s.to_string())
+                .map(ToString::to_string)
                 .collect();
-            state.active_profile = store.index.active_profile.clone();
+            state.active_profile.clone_from(&store.index.active_profile);
             state.message = Some(format!("Switched to '{name}'."));
         }
         Err(e) => {
@@ -269,13 +265,11 @@ fn do_switch(state: &mut AppState, paths: &Paths, name: &str) -> Result<()> {
 fn handle_confirm_delete(state: &mut AppState, paths: &Paths, code: KeyCode) -> Result<()> {
     match code {
         KeyCode::Char('y') => {
-            let name = match state.selected_name() {
-                Some(n) => n.to_string(),
-                None => {
-                    state.screen = AppScreen::Main;
-                    return Ok(());
-                }
+            let Some(n) = state.selected_name() else {
+                state.screen = AppScreen::Main;
+                return Ok(());
             };
+            let name = n.to_string();
 
             let mut store = ProfileStore::load(paths)?;
             match store.index.remove(&name) {
@@ -289,9 +283,9 @@ fn handle_confirm_delete(state: &mut AppState, paths: &Paths, code: KeyCode) -> 
                         .index
                         .names()
                         .into_iter()
-                        .map(|s| s.to_string())
+                        .map(ToString::to_string)
                         .collect();
-                    state.active_profile = store.index.active_profile.clone();
+                    state.active_profile.clone_from(&store.index.active_profile);
 
                     // Clamp selection
                     if state.selected >= state.profile_names.len() && !state.profile_names.is_empty() {
@@ -347,9 +341,9 @@ fn handle_input_name(state: &mut AppState, paths: &Paths, code: KeyCode) -> Resu
                                 .index
                                 .names()
                                 .into_iter()
-                                .map(|s| s.to_string())
+                                .map(ToString::to_string)
                                 .collect();
-                            state.active_profile = store.index.active_profile.clone();
+                            state.active_profile.clone_from(&store.index.active_profile);
                             state.message = Some(format!("Added '{name}'."));
                         }
                         Err(e) => {
@@ -358,14 +352,12 @@ fn handle_input_name(state: &mut AppState, paths: &Paths, code: KeyCode) -> Resu
                     }
                 }
                 Some(Action::Rename) => {
-                    let old_name = match state.selected_name() {
-                        Some(n) => n.to_string(),
-                        None => {
-                            state.screen = AppScreen::Main;
-                            state.pending_action = None;
-                            return Ok(());
-                        }
+                    let Some(n) = state.selected_name() else {
+                        state.screen = AppScreen::Main;
+                        state.pending_action = None;
+                        return Ok(());
                     };
+                    let old_name = n.to_string();
 
                     let mut store = ProfileStore::load(paths)?;
                     match store.index.rename(&old_name, &name) {
@@ -378,9 +370,9 @@ fn handle_input_name(state: &mut AppState, paths: &Paths, code: KeyCode) -> Resu
                                 .index
                                 .names()
                                 .into_iter()
-                                .map(|s| s.to_string())
+                                .map(ToString::to_string)
                                 .collect();
-                            state.active_profile = store.index.active_profile.clone();
+                            state.active_profile.clone_from(&store.index.active_profile);
                             state.message = Some(format!("Renamed '{old_name}' to '{name}'."));
                         }
                         Err(e) => {
@@ -414,14 +406,12 @@ fn handle_input_note(state: &mut AppState, paths: &Paths, code: KeyCode) -> Resu
     match code {
         KeyCode::Enter => {
             let note_text = state.input_buffer.trim().to_string();
-            let name = match state.selected_name() {
-                Some(n) => n.to_string(),
-                None => {
-                    state.screen = AppScreen::Main;
-                    state.pending_action = None;
-                    return Ok(());
-                }
+            let Some(n) = state.selected_name() else {
+                state.screen = AppScreen::Main;
+                state.pending_action = None;
+                return Ok(());
             };
+            let name = n.to_string();
 
             let mut store = ProfileStore::load(paths)?;
             let note = if note_text.is_empty() {

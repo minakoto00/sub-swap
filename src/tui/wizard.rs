@@ -45,7 +45,7 @@ pub fn run_first_launch(paths: &Paths) -> Result<()> {
             )?;
 
             println!();
-            println!("Profile '{}' created successfully.", name);
+            println!("Profile '{name}' created successfully.");
             if encryption_enabled {
                 println!("Encryption is enabled — your profile files are encrypted at rest.");
             } else {
@@ -115,7 +115,7 @@ fn setup_encryption(paths: &Paths) -> Result<([u8; 32], bool)> {
 
 fn prompt_yn(question: &str, default_yes: bool) -> Result<bool> {
     let choices = if default_yes { "[Y/n]" } else { "[y/N]" };
-    print!("{} {} ", question, choices);
+    print!("{question} {choices} ");
     io::stdout().flush()?;
 
     let stdin = io::stdin();
@@ -130,7 +130,6 @@ fn prompt_yn(question: &str, default_yes: bool) -> Result<bool> {
     let answer = match trimmed.as_str() {
         "y" | "yes" => true,
         "n" | "no" => false,
-        "" => default_yes,
         _ => default_yes,
     };
 
@@ -139,8 +138,8 @@ fn prompt_yn(question: &str, default_yes: bool) -> Result<bool> {
 
 fn prompt_string(question: &str, default: Option<&str>) -> Result<String> {
     match default {
-        Some(d) => print!("{} [{}]: ", question, d),
-        None => print!("{}: ", question),
+        Some(d) => print!("{question} [{d}]: "),
+        None => print!("{question}: "),
     }
     io::stdout().flush()?;
 
@@ -161,7 +160,7 @@ fn prompt_string(question: &str, default: Option<&str>) -> Result<String> {
 }
 
 fn prompt_string_optional(question: &str) -> Result<Option<String>> {
-    print!("{}: ", question);
+    print!("{question}: ");
     io::stdout().flush()?;
 
     let stdin = io::stdin();

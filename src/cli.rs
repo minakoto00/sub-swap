@@ -18,10 +18,10 @@ pub fn run(cli: Cli) -> Result<()> {
     match cli.command {
         None => {
             // No subcommand: first-launch wizard if not initialized, else TUI
-            if !paths.profiles_json().exists() {
-                crate::tui::wizard::run_first_launch(&paths)?;
-            } else {
+            if paths.profiles_json().exists() {
                 crate::tui::run_tui(&paths)?;
+            } else {
+                crate::tui::wizard::run_first_launch(&paths)?;
             }
         }
         Some(Commands::List { verbose }) => cmd_list(&paths, verbose)?,
@@ -103,30 +103,27 @@ fn cmd_add(paths: &Paths, name: &str, from: Option<&str>, note: Option<String>) 
     let keystore = OsKeyStore::new();
     let key = get_or_warn_key(&keystore, config.encryption_enabled)?;
 
-    match from {
-        Some(source_path) => {
-            switch::add_profile_from_path(
-                paths,
-                &mut store,
-                name,
-                Path::new(source_path),
-                note,
-                &key,
-                config.encryption_enabled,
-            )?;
-            println!("Profile '{name}' imported from '{source_path}'.");
-        }
-        None => {
-            switch::add_profile_from_codex(
-                paths,
-                &mut store,
-                name,
-                note,
-                &key,
-                config.encryption_enabled,
-            )?;
-            println!("Profile '{name}' created from current ~/.codex/ config.");
-        }
+    if let Some(source_path) = from {
+        switch::add_profile_from_path(
+            paths,
+            &mut store,
+            name,
+            Path::new(source_path),
+            note,
+            &key,
+            config.encryption_enabled,
+        )?;
+        println!("Profile '{name}' imported from '{source_path}'.");
+    } else {
+        switch::add_profile_from_codex(
+            paths,
+            &mut store,
+            name,
+            note,
+            &key,
+            config.encryption_enabled,
+        )?;
+        println!("Profile '{name}' created from current ~/.codex/ config.");
     }
 
     Ok(())

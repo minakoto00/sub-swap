@@ -49,16 +49,19 @@ impl CodexGuard for OsGuard {
 
 // ── Test double ──────────────────────────────────────────────────────────────
 
+#[cfg(test)]
 pub struct MockGuard {
     pids: Vec<u32>,
 }
 
+#[cfg(test)]
 impl MockGuard {
     pub fn new(pids: Vec<u32>) -> Self {
         Self { pids }
     }
 }
 
+#[cfg(test)]
 impl CodexGuard for MockGuard {
     fn find_codex_pids(&self) -> Vec<u32> {
         self.pids.clone()

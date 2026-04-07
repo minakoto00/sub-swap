@@ -35,7 +35,7 @@ pub struct AppState {
 
 impl AppState {
     pub fn from_index(index: &ProfileIndex) -> Self {
-        let profile_names: Vec<String> = index.names().into_iter().map(|s| s.to_string()).collect();
+        let profile_names: Vec<String> = index.names().into_iter().map(ToString::to_string).collect();
         let active_profile = index.active_profile.clone();
         Self {
             screen: AppScreen::Main,
@@ -51,7 +51,7 @@ impl AppState {
     }
 
     pub fn selected_name(&self) -> Option<&str> {
-        self.profile_names.get(self.selected).map(|s| s.as_str())
+        self.profile_names.get(self.selected).map(String::as_str)
     }
 
     pub fn move_up(&mut self) {

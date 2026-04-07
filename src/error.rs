@@ -12,7 +12,6 @@ pub enum SubSwapError {
     ActiveProfile(String),
     NoCodexConfig,
     CodexRunning(Vec<u32>),
-    NotInitialized,
     InvalidProfileName(String),
 }
 
@@ -34,15 +33,12 @@ impl fmt::Display for SubSwapError {
             }
             Self::NoCodexConfig => write!(f, "No auth.json found in ~/.codex/. Nothing to import."),
             Self::CodexRunning(pids) => {
-                let pids_str: Vec<String> = pids.iter().map(|p| p.to_string()).collect();
+                let pids_str: Vec<String> = pids.iter().map(ToString::to_string).collect();
                 write!(
                     f,
                     "Codex is currently running (PID {}). Switching profiles may cause unexpected behavior.",
                     pids_str.join(", ")
                 )
-            }
-            Self::NotInitialized => {
-                write!(f, "sub-swap is not initialized. Run `sub-swap` to set up.")
             }
             Self::InvalidProfileName(name) => {
                 write!(f, "Invalid profile name '{name}'. Names must be non-empty, alphanumeric (with hyphens and underscores allowed), and cannot contain path separators.")

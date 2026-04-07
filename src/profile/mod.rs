@@ -93,7 +93,7 @@ impl ProfileIndex {
     }
 
     pub fn names(&self) -> Vec<&str> {
-        self.profiles.keys().map(|s| s.as_str()).collect()
+        self.profiles.keys().map(String::as_str).collect()
     }
 }
 

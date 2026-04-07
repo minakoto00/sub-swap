@@ -5,7 +5,11 @@ const SERVICE: &str = "sub-swap";
 const ACCOUNT: &str = "encryption-key";
 
 fn encode_key(key: &[u8; 32]) -> String {
-    key.iter().map(|b| format!("{b:02x}")).collect()
+    key.iter().fold(String::with_capacity(64), |mut s, b| {
+        use std::fmt::Write;
+        let _ = write!(s, "{b:02x}");
+        s
+    })
 }
 
 fn decode_key(s: &str) -> Result<[u8; 32]> {
@@ -30,7 +34,6 @@ fn decode_key(s: &str) -> Result<[u8; 32]> {
 pub trait KeyStore {
     fn get_key(&self) -> Result<[u8; 32]>;
     fn set_key(&self, key: &[u8; 32]) -> Result<()>;
-    fn has_key(&self) -> bool;
 }
 
 // ── OsKeyStore ────────────────────────────────────────────────────────────────
@@ -71,20 +74,16 @@ impl KeyStore for OsKeyStore {
             .map_err(|e| SubSwapError::Keychain(format!("failed to store key: {e}")))
     }
 
-    fn has_key(&self) -> bool {
-        let Ok(entry) = Entry::new(SERVICE, ACCOUNT) else {
-            return false;
-        };
-        entry.get_password().is_ok()
-    }
 }
 
 // ── MockKeyStore ──────────────────────────────────────────────────────────────
 
+#[cfg(test)]
 pub struct MockKeyStore {
     key: std::cell::RefCell<Option<[u8; 32]>>,
 }
 
+#[cfg(test)]
 impl MockKeyStore {
     pub fn new() -> Self {
         Self {
@@ -93,12 +92,14 @@ impl MockKeyStore {
     }
 }
 
+#[cfg(test)]
 impl Default for MockKeyStore {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[cfg(test)]
 impl KeyStore for MockKeyStore {
     fn get_key(&self) -> Result<[u8; 32]> {
         self.key
@@ -109,10 +110,6 @@ impl KeyStore for MockKeyStore {
     fn set_key(&self, key: &[u8; 32]) -> Result<()> {
         *self.key.borrow_mut() = Some(*key);
         Ok(())
-    }
-
-    fn has_key(&self) -> bool {
-        self.key.borrow().is_some()
     }
 }
 
