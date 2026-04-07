@@ -39,8 +39,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Fix clippy violations and create lint/format config files (rustfmt.toml, clippy.toml, Cargo.toml [lints])
-- [ ] 01-02-PLAN.md — Create lib.rs library target, justfile command runner, and apply cargo fmt
+- [x] 01-01-PLAN.md — Fix clippy violations and create lint/format config files (rustfmt.toml, clippy.toml, Cargo.toml [lints])
+- [x] 01-02-PLAN.md — Create lib.rs library target, justfile command runner, and apply cargo fmt
 
 ### Phase 2: Architectural Enforcement
 **Goal**: Module boundary violations surface as deterministic `cargo test` failures with messages that tell an agent exactly what to change and why
