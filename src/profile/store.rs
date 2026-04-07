@@ -1,6 +1,6 @@
 use std::fs;
 
-use crate::error::Result;
+use crate::error::{Result, SubSwapError};
 use crate::paths::Paths;
 use crate::profile::ProfileIndex;
 
@@ -103,17 +103,24 @@ impl ProfileStore {
     pub fn load_profile_files(paths: &Paths, name: &str) -> Result<(Vec<u8>, Vec<u8>)> {
         let profile_dir = paths.profile_dir(name);
 
-        // Check .enc first, fall back to plaintext
+        // Check .enc first, fall back to plaintext, error if neither exists
         let auth_data = if profile_dir.join("auth.json.enc").exists() {
             fs::read(profile_dir.join("auth.json.enc"))?
-        } else {
+        } else if profile_dir.join("auth.json").exists() {
             fs::read(profile_dir.join("auth.json"))?
+        } else {
+            return Err(SubSwapError::Crypto(format!(
+                "Profile '{name}' has no auth.json or auth.json.enc — profile data may be corrupted"
+            )));
         };
 
         let config_data = if profile_dir.join("config.toml.enc").exists() {
             fs::read(profile_dir.join("config.toml.enc"))?
-        } else {
+        } else if profile_dir.join("config.toml").exists() {
             fs::read(profile_dir.join("config.toml"))?
+        } else {
+            // config.toml is optional; treat missing as empty
+            Vec::new()
         };
 
         Ok((auth_data, config_data))
