@@ -6,6 +6,12 @@ pub struct Paths {
     pub sub_swap_dir: PathBuf,
 }
 
+impl Default for Paths {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Paths {
     pub fn new() -> Self {
         let home = dirs::home_dir().expect("Could not determine home directory");
