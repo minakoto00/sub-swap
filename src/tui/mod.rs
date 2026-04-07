@@ -356,6 +356,12 @@ fn handle_input_name(state: &mut AppState, paths: &Paths, code: KeyCode) -> Resu
                     }
                 }
                 Some(Action::Rename) => {
+                    if let Err(e) = crate::error::validate_profile_name(&name) {
+                        state.message = Some(format!("Error: {e}"));
+                        state.screen = AppScreen::Main;
+                        state.pending_action = None;
+                        return Ok(());
+                    }
                     let Some(n) = state.selected_name() else {
                         state.screen = AppScreen::Main;
                         state.pending_action = None;
