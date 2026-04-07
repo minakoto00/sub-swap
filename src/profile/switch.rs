@@ -72,21 +72,48 @@ pub fn switch_profile(paths: &Paths, target: &str, key: &[u8; 32], encrypt: bool
         ProfileStore::save_profile_files(paths, old, &auth_to_save, &config_to_save, encrypt)?;
     }
 
-    // Write target plaintext to codex dir
-    fs::write(paths.codex_auth(), &target_auth)?;
-    fs::write(paths.codex_config(), &target_config)?;
-
-    // Set 0600 permissions on the codex files (Unix only)
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(paths.codex_auth(), fs::Permissions::from_mode(0o600))?;
-        fs::set_permissions(paths.codex_config(), fs::Permissions::from_mode(0o600))?;
+    // Create backups of current codex files before overwriting.
+    // If a later step fails, the backups allow manual recovery.
+    let auth_backup = paths.codex_dir.join("auth.json.bak");
+    let config_backup = paths.codex_dir.join("config.toml.bak");
+    fs::copy(paths.codex_auth(), &auth_backup)?;
+    if paths.codex_config().exists() {
+        fs::copy(paths.codex_config(), &config_backup)?;
     }
 
-    // Update index
-    store.index.set_active(target);
-    store.save(paths)?;
+    // Write target plaintext to codex dir
+    let write_result = (|| -> Result<()> {
+        fs::write(paths.codex_auth(), &target_auth)?;
+        fs::write(paths.codex_config(), &target_config)?;
+
+        // Set 0600 permissions on the codex files (Unix only)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(paths.codex_auth(), fs::Permissions::from_mode(0o600))?;
+            fs::set_permissions(paths.codex_config(), fs::Permissions::from_mode(0o600))?;
+        }
+
+        // Update index
+        store.index.set_active(target);
+        store.save(paths)?;
+        Ok(())
+    })();
+
+    if let Err(e) = write_result {
+        // Attempt to restore from backups
+        let _ = fs::copy(&auth_backup, paths.codex_auth());
+        if config_backup.exists() {
+            let _ = fs::copy(&config_backup, paths.codex_config());
+        }
+        let _ = fs::remove_file(&auth_backup);
+        let _ = fs::remove_file(&config_backup);
+        return Err(e);
+    }
+
+    // Clean up backups on success
+    let _ = fs::remove_file(&auth_backup);
+    let _ = fs::remove_file(&config_backup);
 
     Ok(())
 }
