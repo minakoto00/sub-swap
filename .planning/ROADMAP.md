@@ -79,7 +79,10 @@ Plans:
   1. CLAUDE.md is under 80 lines, retains the `Build & Test Commands` section verbatim, and contains a pointer table linking to every docs/ file
   2. A new agent session can find any architectural constraint by following a CLAUDE.md link — no scrolling through implementation details required
   3. HEALTH.md exists with status indicators for each domain (crypto, profile, TUI, docs, enforcement) and is updated to reflect Phase 1-3 outcomes
-**Plans**: TBD
+**Plans:** 1 plan
+
+Plans:
+- [ ] 04-01-PLAN.md — Restructure CLAUDE.md as navigation map and create HEALTH.md quality scorecard
 
 ## Progress
 
@@ -91,4 +94,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Code Quality Foundation | 0/2 | Planning complete | - |
 | 2. Architectural Enforcement | 0/1 | Planning complete | - |
 | 3. Documentation Knowledge Base | 0/2 | Planning complete | - |
-| 4. Agent Entry Point | 0/TBD | Not started | - |
+| 4. Agent Entry Point | 0/1 | Planning complete | - |
