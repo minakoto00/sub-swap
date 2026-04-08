@@ -10,7 +10,7 @@ ratatui = "0.30.0"
 crossterm = "0.29.0"
 aes-gcm = "0.10.3"
 rand = "0.10.0"
-keyring = "3.6.3"
+keyring = { version = "3.6.3", features = ["apple-native"] }
 sysinfo = "0.38.4"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
