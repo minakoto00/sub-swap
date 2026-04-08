@@ -68,8 +68,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Create docs/ARCHITECTURE.md and docs/SECURITY.md with agent-first structure
-- [ ] 03-02-PLAN.md — Create docs/TESTING.md with copyable templates and 4 ADRs in docs/decisions/
+- [x] 03-01-PLAN.md — Create docs/ARCHITECTURE.md and docs/SECURITY.md with agent-first structure
+- [x] 03-02-PLAN.md — Create docs/TESTING.md with copyable templates and 4 ADRs in docs/decisions/
 
 ### Phase 4: Agent Entry Point
 **Goal**: CLAUDE.md is a concise map that points to all docs/, and HEALTH.md gives a machine-readable quality score across all graded domains
