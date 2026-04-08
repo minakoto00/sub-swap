@@ -43,11 +43,11 @@ Secure, frictionless switching between multiple Codex profiles — inactive cred
 <!-- Current scope: Harness engineering alignment. -->
 
 - [ ] Restructure CLAUDE.md as map with progressive disclosure
-- [ ] Structured docs/ knowledge base (ARCHITECTURE.md, SECURITY.md, TESTING.md)
+- [x] Structured docs/ knowledge base (ARCHITECTURE.md, SECURITY.md, TESTING.md) — Validated in Phase 3: documentation-knowledge-base
 - [ ] GitHub Actions CI/CD (test, lint, security audit)
 - [x] Mechanical code quality enforcement (rustfmt, clippy, Cargo lints) — Validated in Phase 1: code-quality-foundation
 - [x] Architectural boundary enforcement via structural tests — Validated in Phase 2: architectural-enforcement
-- [ ] Design decisions documentation
+- [x] Design decisions documentation — Validated in Phase 3: documentation-knowledge-base
 
 ### Out of Scope
 
@@ -100,4 +100,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-08 after Phase 2 (architectural-enforcement) completion*
+*Last updated: 2026-04-08 after Phase 3 (documentation-knowledge-base) completion*
