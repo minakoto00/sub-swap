@@ -78,7 +78,7 @@ fn assert_no_crate_import(file: &str, source: &str, forbidden_modules: &[&str]) 
 }
 
 /// Extract crate names from a TOML section (e.g., `[dependencies]` or `[dev-dependencies]`).
-fn dep_names(cargo: &toml::Value, section: &str) -> Vec<String> {
+fn dep_names(cargo: &toml::Table, section: &str) -> Vec<String> {
     cargo
         .get(section)
         .and_then(|t| t.as_table())
@@ -212,7 +212,7 @@ fn arch_02_crypto_mod_has_no_filesystem_io() {
 #[test]
 fn arch_03_no_network_crates_in_dependencies() {
     let content = read_source("Cargo.toml");
-    let cargo: toml::Value = content
+    let cargo: toml::Table = content
         .parse()
         .expect("Cargo.toml must be valid TOML");
 
