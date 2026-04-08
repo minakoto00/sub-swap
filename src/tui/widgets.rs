@@ -30,6 +30,7 @@ pub struct AppState {
     pub input_buffer: String,
     pub message: Option<String>,
     pub decrypt_output: Option<String>,
+    pub scroll_offset: u16,
     pub should_quit: bool,
 }
 
@@ -47,6 +48,7 @@ impl AppState {
             input_buffer: String::new(),
             message: None,
             decrypt_output: None,
+            scroll_offset: 0,
             should_quit: false,
         }
     }
@@ -65,5 +67,37 @@ impl AppState {
         if !self.profile_names.is_empty() && self.selected < self.profile_names.len() - 1 {
             self.selected += 1;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::profile::{Profile, ProfileIndex};
+
+    fn test_index() -> ProfileIndex {
+        let mut index = ProfileIndex::default();
+        index.add(Profile::new("work", Some("Work account".into())));
+        index.add(Profile::new("personal", None));
+        index.set_active("work");
+        index
+    }
+
+    #[test]
+    fn test_from_index_initializes_scroll_offset_to_zero() {
+        let state = AppState::from_index(&test_index());
+        assert_eq!(state.scroll_offset, 0);
+    }
+
+    #[test]
+    fn test_from_index_sets_active_profile() {
+        let state = AppState::from_index(&test_index());
+        assert_eq!(state.active_profile.as_deref(), Some("work"));
+    }
+
+    #[test]
+    fn test_from_index_collects_sorted_names() {
+        let state = AppState::from_index(&test_index());
+        assert_eq!(state.profile_names, vec!["personal", "work"]);
     }
 }

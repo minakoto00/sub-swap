@@ -79,8 +79,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, paths: &Paths) -> Result<()> 
                     handle_input_note(&mut state, paths, key.code)?;
                 }
                 AppScreen::ViewDecrypt => {
-                    // Any key returns to Main
-                    state.screen = AppScreen::Main;
+                    handle_view_decrypt(&mut state, key.code);
                 }
             }
         }
@@ -170,6 +169,7 @@ fn handle_view(state: &mut AppState, paths: &Paths) -> Result<()> {
             let output =
                 format!("=== auth.json ===\n{auth_str}\n=== config.toml ===\n{config_str}");
             state.decrypt_output = Some(output);
+            state.scroll_offset = 0;
             state.screen = AppScreen::ViewDecrypt;
         }
         Err(e) => {
@@ -178,6 +178,28 @@ fn handle_view(state: &mut AppState, paths: &Paths) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn handle_view_decrypt(state: &mut AppState, code: KeyCode) {
+    match code {
+        KeyCode::Up | KeyCode::Char('k') => {
+            state.scroll_offset = state.scroll_offset.saturating_sub(1);
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            state.scroll_offset = state.scroll_offset.saturating_add(1);
+        }
+        KeyCode::PageUp => {
+            state.scroll_offset = state.scroll_offset.saturating_sub(20);
+        }
+        KeyCode::PageDown => {
+            state.scroll_offset = state.scroll_offset.saturating_add(20);
+        }
+        KeyCode::Char('q') | KeyCode::Esc => {
+            state.screen = AppScreen::Main;
+            state.scroll_offset = 0;
+        }
+        _ => {}
+    }
 }
 
 fn handle_confirm_switch(state: &mut AppState, paths: &Paths, code: KeyCode) -> Result<()> {
@@ -512,15 +534,16 @@ fn render_decrypt_view(f: &mut Frame, state: &AppState, area: Rect) {
     let paragraph = Paragraph::new(content)
         .block(
             Block::default()
-                .title("Decrypted Profile")
+                .title("Decrypted Profile (↑↓ scroll, q/Esc back)")
                 .borders(Borders::ALL),
         )
-        .wrap(ratatui::widgets::Wrap { trim: false });
+        .wrap(ratatui::widgets::Wrap { trim: false })
+        .scroll((state.scroll_offset, 0));
 
     f.render_widget(paragraph, area);
 }
 
-fn render_main_layout(f: &mut Frame, state: &AppState, _store: &ProfileStore, area: Rect) {
+fn render_main_layout(f: &mut Frame, state: &AppState, store: &ProfileStore, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -530,12 +553,12 @@ fn render_main_layout(f: &mut Frame, state: &AppState, _store: &ProfileStore, ar
         ])
         .split(area);
 
-    render_profile_list(f, state, chunks[0]);
+    render_profile_list(f, state, store, chunks[0]);
     render_key_hints(f, chunks[1]);
     render_status_bar(f, state, chunks[2]);
 }
 
-fn render_profile_list(f: &mut Frame, state: &AppState, area: Rect) {
+fn render_profile_list(f: &mut Frame, state: &AppState, store: &ProfileStore, area: Rect) {
     let items: Vec<ListItem> = state
         .profile_names
         .iter()
@@ -546,7 +569,12 @@ fn render_profile_list(f: &mut Frame, state: &AppState, area: Rect) {
 
             let cursor = if is_selected { ">" } else { " " };
             let marker = if is_active { "*" } else { " " };
-            let label = format!("{cursor} {marker} {name}");
+            let note_suffix = store
+                .index
+                .get(name)
+                .and_then(|p| p.notes.as_deref())
+                .map_or(String::new(), |n| format!(" — {n}"));
+            let label = format!("{cursor} {marker} {name}{note_suffix}");
 
             let style = if is_selected && is_active {
                 Style::default()
@@ -625,4 +653,103 @@ fn centered_rect(percent_x: u16, height: u16, area: Rect) -> Rect {
         .split(vertical_chunks[1]);
 
     horizontal_chunks[1]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::profile::{Profile, ProfileIndex};
+    use widgets::AppState;
+
+    fn state_in_decrypt_view() -> AppState {
+        let mut index = ProfileIndex::default();
+        index.add(Profile::new("test", None));
+        let mut state = AppState::from_index(&index);
+        state.screen = AppScreen::ViewDecrypt;
+        state.decrypt_output = Some("line1\nline2\nline3".to_string());
+        state
+    }
+
+    #[test]
+    fn test_scroll_down_increments_offset() {
+        let mut state = state_in_decrypt_view();
+        handle_view_decrypt(&mut state, KeyCode::Down);
+        assert_eq!(state.scroll_offset, 1);
+        assert_eq!(state.screen, AppScreen::ViewDecrypt);
+    }
+
+    #[test]
+    fn test_scroll_up_decrements_offset() {
+        let mut state = state_in_decrypt_view();
+        state.scroll_offset = 5;
+        handle_view_decrypt(&mut state, KeyCode::Up);
+        assert_eq!(state.scroll_offset, 4);
+    }
+
+    #[test]
+    fn test_scroll_up_saturates_at_zero() {
+        let mut state = state_in_decrypt_view();
+        assert_eq!(state.scroll_offset, 0);
+        handle_view_decrypt(&mut state, KeyCode::Up);
+        assert_eq!(state.scroll_offset, 0);
+    }
+
+    #[test]
+    fn test_page_down_scrolls_20_lines() {
+        let mut state = state_in_decrypt_view();
+        handle_view_decrypt(&mut state, KeyCode::PageDown);
+        assert_eq!(state.scroll_offset, 20);
+    }
+
+    #[test]
+    fn test_page_up_scrolls_20_lines() {
+        let mut state = state_in_decrypt_view();
+        state.scroll_offset = 25;
+        handle_view_decrypt(&mut state, KeyCode::PageUp);
+        assert_eq!(state.scroll_offset, 5);
+    }
+
+    #[test]
+    fn test_page_up_saturates_at_zero() {
+        let mut state = state_in_decrypt_view();
+        state.scroll_offset = 10;
+        handle_view_decrypt(&mut state, KeyCode::PageUp);
+        assert_eq!(state.scroll_offset, 0);
+    }
+
+    #[test]
+    fn test_vim_keys_scroll() {
+        let mut state = state_in_decrypt_view();
+        handle_view_decrypt(&mut state, KeyCode::Char('j'));
+        assert_eq!(state.scroll_offset, 1);
+        handle_view_decrypt(&mut state, KeyCode::Char('k'));
+        assert_eq!(state.scroll_offset, 0);
+    }
+
+    #[test]
+    fn test_q_exits_and_resets_scroll() {
+        let mut state = state_in_decrypt_view();
+        state.scroll_offset = 10;
+        handle_view_decrypt(&mut state, KeyCode::Char('q'));
+        assert_eq!(state.screen, AppScreen::Main);
+        assert_eq!(state.scroll_offset, 0);
+    }
+
+    #[test]
+    fn test_esc_exits_and_resets_scroll() {
+        let mut state = state_in_decrypt_view();
+        state.scroll_offset = 5;
+        handle_view_decrypt(&mut state, KeyCode::Esc);
+        assert_eq!(state.screen, AppScreen::Main);
+        assert_eq!(state.scroll_offset, 0);
+    }
+
+    #[test]
+    fn test_unhandled_key_does_not_change_state() {
+        let mut state = state_in_decrypt_view();
+        state.scroll_offset = 3;
+        handle_view_decrypt(&mut state, KeyCode::Char('x'));
+        assert_eq!(state.scroll_offset, 3);
+        assert_eq!(state.screen, AppScreen::ViewDecrypt);
+    }
 }
