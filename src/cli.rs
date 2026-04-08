@@ -331,4 +331,3 @@ fn toggle_all_profiles(paths: &Paths, key: &[u8; 32], encrypt: bool) -> Result<(
 
     Ok(())
 }
-

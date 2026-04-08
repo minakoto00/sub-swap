@@ -626,4 +626,3 @@ fn centered_rect(percent_x: u16, height: u16, area: Rect) -> Rect {
 
     horizontal_chunks[1]
 }
-

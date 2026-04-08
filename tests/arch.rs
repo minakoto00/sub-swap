@@ -97,7 +97,9 @@ fn arch_01_foundation_error_has_no_internal_imports() {
     assert_no_crate_import(
         "src/error.rs",
         &source,
-        &["paths", "crypto", "config", "guard", "profile", "cli", "tui"],
+        &[
+            "paths", "crypto", "config", "guard", "profile", "cli", "tui",
+        ],
     );
 }
 
@@ -212,9 +214,7 @@ fn arch_02_crypto_mod_has_no_filesystem_io() {
 #[test]
 fn arch_03_no_network_crates_in_dependencies() {
     let content = read_source("Cargo.toml");
-    let cargo: toml::Table = content
-        .parse()
-        .expect("Cargo.toml must be valid TOML");
+    let cargo: toml::Table = content.parse().expect("Cargo.toml must be valid TOML");
 
     for section in &["dependencies", "dev-dependencies"] {
         for crate_name in dep_names(&cargo, section) {
