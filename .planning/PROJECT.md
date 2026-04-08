@@ -42,7 +42,7 @@ Secure, frictionless switching between multiple Codex profiles — inactive cred
 
 <!-- Current scope: Harness engineering alignment. -->
 
-- [ ] Restructure CLAUDE.md as map with progressive disclosure
+- [x] Restructure CLAUDE.md as map with progressive disclosure — Validated in Phase 4: agent-entry-point
 - [x] Structured docs/ knowledge base (ARCHITECTURE.md, SECURITY.md, TESTING.md) — Validated in Phase 3: documentation-knowledge-base
 - [ ] GitHub Actions CI/CD (test, lint, security audit)
 - [x] Mechanical code quality enforcement (rustfmt, clippy, Cargo lints) — Validated in Phase 1: code-quality-foundation
@@ -100,4 +100,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-08 after Phase 3 (documentation-knowledge-base) completion*
+*Last updated: 2026-04-08 after Phase 4 (agent-entry-point) completion*
