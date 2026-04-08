@@ -65,7 +65,11 @@ Plans:
   2. `docs/SECURITY.md` documents the encryption model, key management, threat model, and the 0600 file-permission constraint with rationale
   3. `docs/TESTING.md` documents the Paths injection pattern, MockKeyStore, and MockGuard patterns with enough detail for an agent to add a new test
   4. `docs/decisions/` contains ADRs for the four settled choices: AES-256-GCM, OS keychain, path injection, offline-only constraint
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Create docs/ARCHITECTURE.md and docs/SECURITY.md with agent-first structure
+- [ ] 03-02-PLAN.md — Create docs/TESTING.md with copyable templates and 4 ADRs in docs/decisions/
 
 ### Phase 4: Agent Entry Point
 **Goal**: CLAUDE.md is a concise map that points to all docs/, and HEALTH.md gives a machine-readable quality score across all graded domains
@@ -86,5 +90,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Code Quality Foundation | 0/2 | Planning complete | - |
 | 2. Architectural Enforcement | 0/1 | Planning complete | - |
-| 3. Documentation Knowledge Base | 0/TBD | Not started | - |
+| 3. Documentation Knowledge Base | 0/2 | Planning complete | - |
 | 4. Agent Entry Point | 0/TBD | Not started | - |
