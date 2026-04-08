@@ -54,7 +54,7 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 02-01-PLAN.md — Create tests/arch.rs with structural tests for layer boundaries, crypto purity, and network-free constraint
+- [x] 02-01-PLAN.md — Create tests/arch.rs with structural tests for layer boundaries, crypto purity, and network-free constraint
 
 ### Phase 3: Documentation Knowledge Base
 **Goal**: The docs/ directory contains authoritative, agent-legible documentation for architecture, security, testing, and key design decisions
