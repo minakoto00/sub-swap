@@ -51,7 +51,10 @@ Plans:
   2. Introducing a prohibited import in `crypto/` (e.g., importing from `profile/`) causes a specific `tests/arch.rs` test to fail
   3. Adding a network crate to `Cargo.toml` causes a structural test to fail with a message naming the forbidden crate
   4. Every structural test failure message includes a "HOW TO FIX" section an agent can act on without reading additional context
-**Plans**: TBD
+**Plans:** 1 plan
+
+Plans:
+- [ ] 02-01-PLAN.md — Create tests/arch.rs with structural tests for layer boundaries, crypto purity, and network-free constraint
 
 ### Phase 3: Documentation Knowledge Base
 **Goal**: The docs/ directory contains authoritative, agent-legible documentation for architecture, security, testing, and key design decisions
@@ -82,6 +85,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Code Quality Foundation | 0/2 | Planning complete | - |
-| 2. Architectural Enforcement | 0/TBD | Not started | - |
+| 2. Architectural Enforcement | 0/1 | Planning complete | - |
 | 3. Documentation Knowledge Base | 0/TBD | Not started | - |
 | 4. Agent Entry Point | 0/TBD | Not started | - |
