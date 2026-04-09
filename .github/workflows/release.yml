@@ -101,3 +101,91 @@ jobs:
             ${{ env.ARCHIVE }}.sha256
           if-no-files-found: error
           retention-days: 7
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: staging
+
+      - name: Collect archives into dist/
+        shell: bash
+        run: |
+          mkdir -p dist
+          find staging -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.sha256' \) \
+            -exec mv {} dist/ \;
+          ls -la dist/
+
+      - name: Generate build provenance attestations
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.zip
+
+      - name: Build release body
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Fetch GitHub's auto-generated release notes for this tag.
+          auto_notes=$(gh api \
+            -X POST \
+            "/repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+            -f tag_name="${GITHUB_REF_NAME}" \
+            -q .body)
+
+          {
+            echo "${auto_notes}"
+            echo ''
+            echo '## Checksums (SHA-256)'
+            echo ''
+            echo '| File | SHA-256 |'
+            echo '|------|---------|'
+            for sum_file in dist/*.sha256; do
+              line=$(cat "${sum_file}")
+              hash=$(echo "${line}" | awk '{print $1}')
+              file=$(basename "${sum_file}" .sha256)
+              echo "| ${file} | \`${hash}\` |"
+            done
+            echo ''
+            echo '> **Security:** SHA-256 alone is not proof of provenance. Both the archive and its `.sha256` sidecar live in this release page, so an attacker who can rewrite the release can rewrite both. Use `gh attestation verify` below as the authoritative provenance check.'
+            echo ''
+            echo '## Verify the download'
+            echo ''
+            echo 'Every release archive is covered by a Sigstore-signed SLSA build provenance attestation. To verify that an archive was built by this repository'"'"'s release workflow from the tagged commit, run:'
+            echo ''
+            echo '```bash'
+            echo "gh attestation verify sub-swap-${GITHUB_REF_NAME}-x86_64-apple-darwin.tar.gz \\"
+            echo "  --repo ${GITHUB_REPOSITORY}"
+            echo '```'
+            echo ''
+            echo "Replace the archive name with whichever file you downloaded. The command checks that the archive was built by ${GITHUB_REPOSITORY}'s release workflow from a \`v*\` tag, that the Sigstore signature is valid, and that it chains to the public Sigstore transparency log."
+          } > release-body.md
+
+          echo '----- release body preview -----'
+          cat release-body.md
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "sub-swap ${GITHUB_REF_NAME}" \
+            --notes-file release-body.md \
+            dist/*.tar.gz dist/*.zip dist/*.sha256
