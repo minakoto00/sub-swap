@@ -3,6 +3,8 @@ name = "sub-swap"
 version = "0.1.0"
 edition = "2021"
 description = "Manage multiple ~/.codex/ profiles with encryption at rest"
+license = "GPL-3.0-only"
+repository = "https://github.com/minakoto00/sub-swap"
 
 [dependencies]
 clap = { version = "4.6.0", features = ["derive"] }
