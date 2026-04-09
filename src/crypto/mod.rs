@@ -1,4 +1,5 @@
 pub mod keychain;
+pub mod passphrase;
 
 use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Key, Nonce};
