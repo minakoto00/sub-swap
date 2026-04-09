@@ -1,0 +1,102 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-apple-darwin
+            runner: macos-13
+            use_cross: false
+          - target: aarch64-apple-darwin
+            runner: macos-14
+            use_cross: false
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-latest
+            use_cross: false
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-latest
+            use_cross: true
+          - target: x86_64-pc-windows-msvc
+            runner: windows-latest
+            use_cross: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo registry and build outputs
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Install Linux keyring dependencies (native build)
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev libsecret-1-dev
+
+      - name: Install cross (arm64 Linux)
+        if: matrix.use_cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: Build release binary (cargo)
+        if: ${{ !matrix.use_cross }}
+        shell: bash
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Build release binary (cross)
+        if: matrix.use_cross
+        shell: bash
+        run: cross build --release --target ${{ matrix.target }}
+
+      - name: Run tests (native targets only)
+        if: ${{ !matrix.use_cross }}
+        shell: bash
+        run: cargo test --target ${{ matrix.target }}
+
+      - name: Package archive (unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          ARCHIVE="sub-swap-${GITHUB_REF_NAME}-${{ matrix.target }}.tar.gz"
+          tar czf "$ARCHIVE" -C "target/${{ matrix.target }}/release" sub-swap
+          shasum -a 256 "$ARCHIVE" > "$ARCHIVE.sha256"
+          echo "ARCHIVE=$ARCHIVE" >> "$GITHUB_ENV"
+
+      - name: Package archive (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $Archive = "sub-swap-${env:GITHUB_REF_NAME}-${{ matrix.target }}.zip"
+          Compress-Archive -Path "target\${{ matrix.target }}\release\sub-swap.exe" -DestinationPath $Archive
+          $Hash = (Get-FileHash -Algorithm SHA256 $Archive).Hash.ToLower()
+          "$Hash  $Archive" | Out-File -Encoding ascii "$Archive.sha256"
+          "ARCHIVE=$Archive" | Out-File -Encoding ascii -Append $env:GITHUB_ENV
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sub-swap-${{ matrix.target }}
+          path: |
+            ${{ env.ARCHIVE }}
+            ${{ env.ARCHIVE }}.sha256
+          if-no-files-found: error
+          retention-days: 7
