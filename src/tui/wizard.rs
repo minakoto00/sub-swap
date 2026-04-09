@@ -1,9 +1,10 @@
 use std::io::{self, BufRead, Write};
 
 use crate::config::{AppConfig, KeyBackend};
-use crate::crypto;
-use crate::crypto::keychain::{KeyStore, OsKeyStore};
+use crate::crypto::keychain::OsKeyStore;
 use crate::error::{validate_profile_name, Result};
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+use crate::error::SubSwapError;
 use crate::paths::Paths;
 use crate::profile::store::ProfileStore;
 use crate::profile::switch;
@@ -86,33 +87,40 @@ fn setup_encryption(paths: &Paths) -> Result<([u8; 32], bool)> {
     let generate = prompt_yn("Generate encryption key now?", true)?;
 
     if generate {
-        let key = crypto::generate_key();
-        OsKeyStore::new().set_key(&key)?;
+        let (key_backend, passphrase_kdf, key) =
+            match crate::key::initialize_native_backend(&OsKeyStore::new()) {
+                Ok(key) => (KeyBackend::Native, None, key),
+                Err(native_err) => {
+                    #[cfg(any(target_os = "linux", target_os = "windows"))]
+                    {
+                        println!("Native key storage unavailable: {native_err}");
+                        let passphrase = prompt_passphrase_twice_wizard()?;
+                        let (passphrase_kdf, key) =
+                            crate::key::initialize_passphrase_backend(&passphrase)?;
+                        (KeyBackend::Passphrase, Some(passphrase_kdf), key)
+                    }
 
-        #[cfg(target_os = "macos")]
-        println!("Encryption key stored in macOS Keychain (Keychain Access > sub-swap).");
-
-        #[cfg(target_os = "linux")]
-        println!("Encryption key stored in the system keyring (e.g. GNOME Keyring or KWallet).");
-
-        #[cfg(target_os = "windows")]
-        println!("Encryption key stored in Windows Credential Manager.");
-
-        #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-        println!("Encryption key stored in the OS keychain.");
+                    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+                    {
+                        return Err(native_err);
+                    }
+                }
+            };
 
         let config = AppConfig {
             encryption_enabled: true,
-            key_backend: Some(KeyBackend::Native),
-            passphrase_kdf: None,
+            key_backend: Some(key_backend.clone()),
+            passphrase_kdf,
         };
         config.save(paths)?;
+        println!(
+            "Encryption enabled using {}.",
+            crate::key::backend_label(&key_backend)
+        );
 
         Ok((key, true))
     } else {
-        println!(
-            "Skipping encryption setup. You can enable it later with `sub-swap config --encrypt`."
-        );
+        println!("{}", skipped_encryption_message());
 
         let config = AppConfig {
             encryption_enabled: false,
@@ -124,6 +132,10 @@ fn setup_encryption(paths: &Paths) -> Result<([u8; 32], bool)> {
         let dummy_key = [0u8; 32];
         Ok((dummy_key, false))
     }
+}
+
+fn skipped_encryption_message() -> &'static str {
+    "Skipping encryption setup. You can enable it later with `sub-swap config set encryption true`."
 }
 
 fn prompt_yn(question: &str, default_yes: bool) -> Result<bool> {
@@ -174,5 +186,36 @@ fn prompt_string_optional(question: &str) -> Result<Option<String>> {
         Ok(None)
     } else {
         Ok(Some(trimmed))
+    }
+}
+
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+fn prompt_passphrase_twice_wizard() -> Result<String> {
+    let first = rpassword::prompt_password("Enter passphrase: ")?;
+    let second = rpassword::prompt_password("Confirm passphrase: ")?;
+
+    if first != second {
+        return Err(SubSwapError::Crypto(
+            "passphrase confirmation did not match".to_string(),
+        ));
+    }
+
+    if first.is_empty() {
+        return Err(SubSwapError::Crypto(
+            "passphrase cannot be empty".to_string(),
+        ));
+    }
+
+    Ok(first)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_later_enable_message_uses_real_cli_command() {
+        let message = skipped_encryption_message();
+        assert!(message.contains("sub-swap config set encryption true"));
     }
 }

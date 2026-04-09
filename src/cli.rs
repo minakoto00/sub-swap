@@ -2,9 +2,9 @@ use std::path::Path;
 
 use clap::{Parser, Subcommand};
 
-use crate::config::AppConfig;
+use crate::config::{AppConfig, KeyBackend};
 use crate::crypto;
-use crate::crypto::keychain::{get_or_default_key, OsKeyStore};
+use crate::crypto::keychain::OsKeyStore;
 use crate::error::{validate_profile_name, Result, SubSwapError};
 use crate::guard::{CodexGuard, OsGuard};
 use crate::paths::Paths;
@@ -146,7 +146,8 @@ fn cmd_use(paths: &Paths, name: &str, force: bool) -> Result<()> {
 
     let config = AppConfig::load(paths)?;
     let keystore = OsKeyStore::new();
-    let key = get_or_default_key(&keystore, config.encryption_enabled)?;
+    let passphrase = std::env::var("SUB_SWAP_PASSPHRASE").ok();
+    let key = crate::key::resolve_key(&config, &keystore, passphrase.as_deref())?;
 
     switch::switch_profile(paths, name, &key, config.encryption_enabled)?;
     println!("Switched to profile '{name}'.");
@@ -159,7 +160,8 @@ fn cmd_add(paths: &Paths, name: &str, from: Option<&str>, note: Option<String>) 
     let mut store = ProfileStore::load_or_init(paths)?;
     let config = AppConfig::load(paths)?;
     let keystore = OsKeyStore::new();
-    let key = get_or_default_key(&keystore, config.encryption_enabled)?;
+    let passphrase = std::env::var("SUB_SWAP_PASSPHRASE").ok();
+    let key = crate::key::resolve_key(&config, &keystore, passphrase.as_deref())?;
 
     if let Some(source_path) = from {
         let source = Path::new(source_path);
@@ -236,7 +238,8 @@ fn cmd_decrypt(paths: &Paths, name: &str) -> Result<()> {
     validate_profile_name(name)?;
     let config = AppConfig::load(paths)?;
     let keystore = OsKeyStore::new();
-    let key = get_or_default_key(&keystore, config.encryption_enabled)?;
+    let passphrase = std::env::var("SUB_SWAP_PASSPHRASE").ok();
+    let key = crate::key::resolve_key(&config, &keystore, passphrase.as_deref())?;
 
     let (auth_str, config_str) = switch::decrypt_profile_to_stdout(paths, name, &key)?;
 
@@ -252,7 +255,7 @@ fn cmd_config(paths: &Paths, action: ConfigAction) -> Result<()> {
     match action {
         ConfigAction::Show => {
             let config = AppConfig::load(paths)?;
-            println!("encryption_enabled: {}", config.encryption_enabled);
+            println!("{}", format_config_for_display(&config));
         }
         ConfigAction::Set { key, value } => {
             let mut config = AppConfig::load(paths)?;
@@ -271,11 +274,36 @@ fn cmd_config(paths: &Paths, action: ConfigAction) -> Result<()> {
                         println!("Encryption is already set to {new_val}.");
                         return Ok(());
                     }
-                    let keystore = OsKeyStore::new();
-                    let key_bytes = get_or_default_key(&keystore, new_val)?;
-                    toggle_all_profiles(paths, &key_bytes, new_val)?;
-                    config.encryption_enabled = new_val;
-                    config.save(paths)?;
+
+                    if new_val {
+                        let keystore = OsKeyStore::new();
+                        let (backend, passphrase_kdf, key_bytes) =
+                            match crate::key::initialize_native_backend(&keystore) {
+                                Ok(key_bytes) => (KeyBackend::Native, None, key_bytes),
+                                Err(native_err) => {
+                                    println!("Native key storage unavailable: {native_err}");
+                                    let passphrase = prompt_passphrase_twice_cli()?;
+                                    let (passphrase_kdf, key_bytes) =
+                                        crate::key::initialize_passphrase_backend(&passphrase)?;
+                                    (KeyBackend::Passphrase, Some(passphrase_kdf), key_bytes)
+                                }
+                            };
+
+                        config.encryption_enabled = true;
+                        config.key_backend = Some(backend);
+                        config.passphrase_kdf = passphrase_kdf;
+                        toggle_all_profiles(paths, &key_bytes, true)?;
+                        config.save(paths)?;
+                    } else {
+                        let keystore = OsKeyStore::new();
+                        let passphrase = std::env::var("SUB_SWAP_PASSPHRASE").ok();
+                        let key_bytes =
+                            crate::key::resolve_key(&config, &keystore, passphrase.as_deref())?;
+                        toggle_all_profiles(paths, &key_bytes, false)?;
+                        config.encryption_enabled = false;
+                        config.save(paths)?;
+                    }
+
                     println!("Encryption set to {new_val}.");
                 }
                 _ => {
@@ -291,6 +319,38 @@ fn cmd_config(paths: &Paths, action: ConfigAction) -> Result<()> {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+fn format_config_for_display(config: &AppConfig) -> String {
+    let backend = match config.key_backend {
+        Some(KeyBackend::Native) => "native",
+        Some(KeyBackend::Passphrase) => "passphrase",
+        None => "unconfigured",
+    };
+
+    format!(
+        "encryption_enabled: {}\nkey_backend: {}",
+        config.encryption_enabled, backend
+    )
+}
+
+fn prompt_passphrase_twice_cli() -> Result<String> {
+    let first = rpassword::prompt_password("Enter passphrase: ")?;
+    let second = rpassword::prompt_password("Confirm passphrase: ")?;
+
+    if first != second {
+        return Err(SubSwapError::Crypto(
+            "passphrase confirmation did not match".to_string(),
+        ));
+    }
+
+    if first.is_empty() {
+        return Err(SubSwapError::Crypto(
+            "passphrase cannot be empty".to_string(),
+        ));
+    }
+
+    Ok(first)
+}
 
 /// Re-encrypt or decrypt all non-active profiles.
 ///
@@ -330,4 +390,23 @@ fn toggle_all_profiles(paths: &Paths, key: &[u8; 32], encrypt: bool) -> Result<(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::KeyBackend;
+
+    #[test]
+    fn test_format_config_show_includes_backend() {
+        let config = AppConfig {
+            encryption_enabled: true,
+            key_backend: Some(KeyBackend::Native),
+            passphrase_kdf: None,
+        };
+
+        let output = format_config_for_display(&config);
+        assert!(output.contains("encryption_enabled: true"));
+        assert!(output.contains("key_backend: native"));
+    }
 }
