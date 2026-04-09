@@ -7,6 +7,18 @@ use crate::crypto::passphrase::{
 };
 use crate::error::{Result, SubSwapError};
 
+fn is_missing_key_error(err: &SubSwapError) -> bool {
+    match err {
+        SubSwapError::Keychain(message) => {
+            message.contains("no key stored")
+                || message.contains("No entry")
+                || message.contains("no entry")
+                || message.contains("No matching entry")
+        }
+        _ => false,
+    }
+}
+
 pub fn resolve_key(
     config: &AppConfig,
     keystore: &impl KeyStore,
@@ -42,8 +54,10 @@ pub fn resolve_key(
 }
 
 pub fn initialize_native_backend(keystore: &impl KeyStore) -> Result<[u8; 32]> {
-    if let Ok(existing_key) = keystore.get_key() {
-        return Ok(existing_key);
+    match keystore.get_key() {
+        Ok(existing_key) => return Ok(existing_key),
+        Err(err) if !is_missing_key_error(&err) => return Err(err),
+        Err(_) => {}
     }
 
     let key = crypto::generate_key();
@@ -178,6 +192,30 @@ mod tests {
         let second = initialize_native_backend(&store).unwrap();
 
         assert_eq!(first, second);
+    }
+
+    #[test]
+    fn test_initialize_native_backend_propagates_non_missing_key_error() {
+        struct FailingKeyStore;
+
+        impl KeyStore for FailingKeyStore {
+            fn get_key(&self) -> Result<[u8; 32]> {
+                Err(SubSwapError::Keychain("access denied".to_string()))
+            }
+
+            fn set_key(&self, _key: &[u8; 32]) -> Result<()> {
+                panic!("set_key should not be called for non-missing errors");
+            }
+        }
+
+        let result = initialize_native_backend(&FailingKeyStore);
+
+        match result {
+            Err(SubSwapError::Keychain(message)) => {
+                assert_eq!(message, "access denied");
+            }
+            other => panic!("expected keychain error, got {other:?}"),
+        }
     }
 
     #[test]
