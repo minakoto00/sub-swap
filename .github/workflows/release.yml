@@ -146,7 +146,11 @@ jobs:
             -X POST \
             "/repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
             -f tag_name="${GITHUB_REF_NAME}" \
-            -q .body)
+            -q .body) || { echo "ERROR: gh api generate-notes failed" >&2; exit 1; }
+          if [[ -z "${auto_notes}" ]]; then
+            echo "WARNING: auto-generated release notes were empty" >&2
+            auto_notes="_No auto-generated release notes available._"
+          fi
 
           {
             echo "${auto_notes}"
