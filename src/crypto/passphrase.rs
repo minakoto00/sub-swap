@@ -66,20 +66,28 @@ pub fn decode_salt_b64(raw: &str) -> Result<[u8; SALT_LEN]> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::SubSwapError;
 
-    #[test]
-    fn test_derive_key_is_stable_for_same_inputs() {
-        let params = PassphraseParams {
+    const EXPECTED_FIXED_DERIVED_KEY: [u8; 32] = [
+        106, 209, 10, 249, 127, 23, 68, 17, 155, 215, 19, 92, 133, 18, 29, 197, 137, 121, 79, 156, 93,
+        100, 98, 0, 184, 173, 77, 107, 236, 241, 80, 132,
+    ];
+
+    fn default_test_params() -> PassphraseParams {
+        PassphraseParams {
             salt: [7u8; SALT_LEN],
             memory_kib: 65_536,
             iterations: 3,
             parallelism: 1,
-        };
+        }
+    }
 
-        let first = derive_key("correct horse battery staple", &params).unwrap();
-        let second = derive_key("correct horse battery staple", &params).unwrap();
-
-        assert_eq!(first, second);
+    #[test]
+    fn test_derive_key_matches_fixed_output() {
+        let params = default_test_params();
+        let derived =
+            derive_key("correct horse battery staple", &params).expect("derive key should succeed");
+        assert_eq!(derived, EXPECTED_FIXED_DERIVED_KEY);
     }
 
     #[test]
@@ -104,10 +112,60 @@ mod tests {
     }
 
     #[test]
-    fn test_salt_base64_roundtrip() {
+    fn test_decode_salt_b64_rejects_malformed_input() {
+        let result = decode_salt_b64("not-base64!");
+        match result {
+            Err(SubSwapError::Crypto(msg)) => {
+                assert!(
+                    msg.contains("invalid base64 salt"),
+                    "unexpected error message: {msg}"
+                );
+            }
+            _ => panic!("expected base64 error"),
+        }
+    }
+
+    #[test]
+    fn test_decode_salt_b64_rejects_wrong_length() {
+        let encoded_short = STANDARD.encode(&[1u8, 2, 3, 4, 5]);
+        let result = decode_salt_b64(&encoded_short);
+        match result {
+            Err(SubSwapError::Crypto(msg)) => {
+                assert!(
+                    msg.contains("invalid salt length"),
+                    "unexpected error message: {msg}"
+                );
+            }
+            _ => panic!("expected salt length error"),
+        }
+    }
+
+    #[test]
+    fn test_decode_salt_b64_roundtrip() {
         let salt = [9u8; SALT_LEN];
         let encoded = encode_salt_b64(&salt);
         let decoded = decode_salt_b64(&encoded).unwrap();
         assert_eq!(decoded, salt);
+    }
+
+    #[test]
+    fn test_derive_key_rejects_invalid_params() {
+        let params = PassphraseParams {
+            salt: [7u8; SALT_LEN],
+            memory_kib: 0,
+            iterations: 3,
+            parallelism: 1,
+        };
+
+        let result = derive_key("any-passphrase", &params);
+        match result {
+            Err(SubSwapError::Crypto(msg)) => {
+                assert!(
+                    msg.contains("invalid Argon2 parameters"),
+                    "unexpected error message: {msg}"
+                );
+            }
+            _ => panic!("expected Argon2 parameter error"),
+        }
     }
 }
