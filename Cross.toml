@@ -1,0 +1,12 @@
+# Configuration for cross-rs (https://github.com/cross-rs/cross).
+#
+# The aarch64-unknown-linux-gnu build pulls in libdbus-sys via
+# `keyring → dbus-secret-service → dbus`. The default cross container has no
+# libdbus-1-dev, so its build script fails the pkg-config lookup for `dbus-1`.
+# The pre-build hooks below enable Debian multi-arch and install the arm64
+# development package into the container image used for this target.
+[target.aarch64-unknown-linux-gnu]
+pre-build = [
+    "dpkg --add-architecture $CROSS_DEB_ARCH",
+    "apt-get update && apt-get install --assume-yes libdbus-1-dev:$CROSS_DEB_ARCH",
+]

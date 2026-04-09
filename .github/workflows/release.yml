@@ -16,21 +16,32 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # GitHub retired the macos-13 Intel runner, so x86_64-apple-darwin is
+          # cross-compiled from the macos-14 Apple Silicon host via Xcode's
+          # multi-arch SDK. Tests are skipped because the runner arch doesn't
+          # match the target arch.
           - target: x86_64-apple-darwin
-            runner: macos-13
+            runner: macos-14
             use_cross: false
+            run_tests: false
           - target: aarch64-apple-darwin
             runner: macos-14
             use_cross: false
+            run_tests: true
           - target: x86_64-unknown-linux-gnu
             runner: ubuntu-latest
             use_cross: false
+            run_tests: true
+          # aarch64 Linux builds inside a cross container, so tests can't run
+          # on the x86_64 host. See Cross.toml for the container dep install.
           - target: aarch64-unknown-linux-gnu
             runner: ubuntu-latest
             use_cross: true
+            run_tests: false
           - target: x86_64-pc-windows-msvc
             runner: windows-latest
             use_cross: false
+            run_tests: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -67,8 +78,8 @@ jobs:
         shell: bash
         run: cross build --release --target ${{ matrix.target }}
 
-      - name: Run tests (native targets only)
-        if: ${{ !matrix.use_cross }}
+      - name: Run tests (host arch matches target only)
+        if: matrix.run_tests
         shell: bash
         run: cargo test --target ${{ matrix.target }}
 
