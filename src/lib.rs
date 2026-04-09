@@ -3,6 +3,7 @@ pub mod config;
 pub mod crypto;
 pub mod error;
 pub mod guard;
+pub mod key;
 pub mod paths;
 pub mod profile;
 pub mod tui;
