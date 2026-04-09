@@ -20,7 +20,7 @@ pub fn resolve_key(
         Some(KeyBackend::Native) => keystore.get_key(),
         Some(KeyBackend::Passphrase) => {
             let passphrase = passphrase.ok_or_else(|| {
-                SubSwapError::Keychain(
+                SubSwapError::Crypto(
                     "passphrase backend is configured but no passphrase was provided".to_string(),
                 )
             })?;
@@ -42,6 +42,10 @@ pub fn resolve_key(
 }
 
 pub fn initialize_native_backend(keystore: &impl KeyStore) -> Result<[u8; 32]> {
+    if let Ok(existing_key) = keystore.get_key() {
+        return Ok(existing_key);
+    }
+
     let key = crypto::generate_key();
     keystore.set_key(&key)?;
     Ok(key)
@@ -59,7 +63,7 @@ pub fn initialize_passphrase_backend(passphrase: &str) -> Result<(PassphraseKdfC
     Ok((config, key))
 }
 
-pub fn backend_label(backend: KeyBackend) -> &'static str {
+pub fn backend_label(backend: &KeyBackend) -> &'static str {
     match backend {
         KeyBackend::Native => native_backend_label(),
         KeyBackend::Passphrase => "passphrase-derived key",
@@ -140,11 +144,56 @@ mod tests {
     }
 
     #[test]
+    fn test_resolve_key_passphrase_backend_requires_passphrase() {
+        let config = AppConfig {
+            encryption_enabled: true,
+            key_backend: Some(KeyBackend::Passphrase),
+            passphrase_kdf: Some(PassphraseKdfConfig {
+                salt_b64: "CQkJCQkJCQkJCQkJCQkJCQ==".to_string(),
+                memory_kib: 65_536,
+                iterations: 3,
+                parallelism: 1,
+            }),
+        };
+
+        let store = MockKeyStore::new();
+        let result = resolve_key(&config, &store, None);
+
+        match result {
+            Err(SubSwapError::Crypto(message)) => {
+                assert_eq!(
+                    message,
+                    "passphrase backend is configured but no passphrase was provided"
+                );
+            }
+            other => panic!("expected crypto error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_initialize_native_backend_is_idempotent() {
+        let store = MockKeyStore::new();
+
+        let first = initialize_native_backend(&store).unwrap();
+        let second = initialize_native_backend(&store).unwrap();
+
+        assert_eq!(first, second);
+    }
+
+    #[test]
     fn test_initialize_passphrase_backend_returns_config_and_key() {
         let (kdf, key) = initialize_passphrase_backend("correct horse battery staple").unwrap();
         assert_eq!(kdf.memory_kib, 65_536);
         assert_eq!(kdf.iterations, 3);
         assert_eq!(kdf.parallelism, 1);
         assert_eq!(key.len(), 32);
+    }
+
+    #[test]
+    fn test_backend_label_for_passphrase_backend() {
+        assert_eq!(
+            backend_label(&KeyBackend::Passphrase),
+            "passphrase-derived key"
+        );
     }
 }
