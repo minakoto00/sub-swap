@@ -2,9 +2,9 @@ use std::io::{self, BufRead, Write};
 
 use crate::config::{AppConfig, KeyBackend};
 use crate::crypto::keychain::OsKeyStore;
-use crate::error::{validate_profile_name, Result};
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 use crate::error::SubSwapError;
+use crate::error::{validate_profile_name, Result};
 use crate::paths::Paths;
 use crate::profile::store::ProfileStore;
 use crate::profile::switch;

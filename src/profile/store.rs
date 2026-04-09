@@ -1,4 +1,6 @@
 use std::fs;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 
 use crate::error::{Result, SubSwapError};
 use crate::paths::Paths;
@@ -37,7 +39,6 @@ impl ProfileStore {
 
         #[cfg(unix)]
         {
-            use std::os::unix::fs::PermissionsExt;
             fs::set_permissions(&path, fs::Permissions::from_mode(0o600))?;
         }
 
@@ -92,7 +93,6 @@ impl ProfileStore {
         // Set 0600 permissions on Unix
         #[cfg(unix)]
         {
-            use std::os::unix::fs::PermissionsExt;
             fs::set_permissions(&auth_path, fs::Permissions::from_mode(0o600))?;
             fs::set_permissions(&config_path, fs::Permissions::from_mode(0o600))?;
         }
@@ -285,7 +285,6 @@ mod tests {
         let (_tmp, paths) = setup();
         ProfileStore::save_profile_files(&paths, "secure", b"auth", b"config", false).unwrap();
 
-        use std::os::unix::fs::PermissionsExt;
         let auth_perms = std::fs::metadata(paths.profile_dir("secure").join("auth.json"))
             .unwrap()
             .permissions()

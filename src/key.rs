@@ -2,8 +2,7 @@ use crate::config::{AppConfig, KeyBackend, PassphraseKdfConfig};
 use crate::crypto;
 use crate::crypto::keychain::KeyStore;
 use crate::crypto::passphrase::{
-    PassphraseParams, decode_salt_b64, default_params_with_random_salt, derive_key,
-    encode_salt_b64,
+    decode_salt_b64, default_params_with_random_salt, derive_key, encode_salt_b64, PassphraseParams,
 };
 use crate::error::{Result, SubSwapError};
 

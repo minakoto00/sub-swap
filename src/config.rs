@@ -105,8 +105,8 @@ impl AppConfig {
 mod tests {
     use super::*;
     use crate::paths::Paths;
-    use tempfile::TempDir;
     use std::fs;
+    use tempfile::TempDir;
 
     #[test]
     fn test_default_config_has_encryption_enabled() {
@@ -173,7 +173,10 @@ mod tests {
         .unwrap();
 
         let result = AppConfig::load(&paths);
-        assert!(result.is_err(), "passphrase backend must reject missing KDF metadata");
+        assert!(
+            result.is_err(),
+            "passphrase backend must reject missing KDF metadata"
+        );
     }
 
     #[test]

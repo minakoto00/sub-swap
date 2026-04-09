@@ -79,6 +79,20 @@ pub fn validate_profile_name(name: &str) -> Result<()> {
     Ok(())
 }
 
+impl From<io::Error> for SubSwapError {
+    fn from(e: io::Error) -> Self {
+        Self::Io(e)
+    }
+}
+
+impl From<serde_json::Error> for SubSwapError {
+    fn from(e: serde_json::Error) -> Self {
+        Self::Json(e)
+    }
+}
+
+pub type Result<T> = std::result::Result<T, SubSwapError>;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -100,17 +114,3 @@ mod tests {
         assert!(validate_profile_name("has space").is_err());
     }
 }
-
-impl From<io::Error> for SubSwapError {
-    fn from(e: io::Error) -> Self {
-        Self::Io(e)
-    }
-}
-
-impl From<serde_json::Error> for SubSwapError {
-    fn from(e: serde_json::Error) -> Self {
-        Self::Json(e)
-    }
-}
-
-pub type Result<T> = std::result::Result<T, SubSwapError>;

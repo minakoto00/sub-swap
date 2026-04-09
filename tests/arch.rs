@@ -57,9 +57,9 @@ fn assert_no_crate_import(file: &str, source: &str, forbidden_modules: &[&str]) 
         for forbidden in forbidden_modules {
             // Match `use crate::{forbidden}` or `use crate::{forbidden}::` or
             // `use crate::{forbidden};`
-            let prefix_colon = format!("use crate::{}::", forbidden);
-            let prefix_semi = format!("use crate::{};", forbidden);
-            let prefix_brace = format!("use crate::{{{}", forbidden);
+            let prefix_colon = format!("use crate::{forbidden}::");
+            let prefix_semi = format!("use crate::{forbidden};");
+            let prefix_brace = format!("use crate::{{{forbidden}");
             if trimmed.starts_with(&prefix_colon)
                 || trimmed.starts_with(&prefix_semi)
                 || trimmed.starts_with(&prefix_brace)
@@ -204,15 +204,14 @@ fn arch_02_crypto_mod_has_no_filesystem_io() {
     let forbidden_patterns = ["std::fs", "std::io::Write", "std::net", "std::process"];
 
     for pattern in &forbidden_patterns {
-        if source.contains(pattern) {
-            panic!(
-                "VIOLATION: Crypto purity — crypto/mod.rs must contain only pure functions\n\
-                 FOUND: import or use of `{pattern}` in src/crypto/mod.rs\n\
-                 HOW TO FIX: Remove the `{pattern}` usage from crypto/mod.rs. \
-                 Filesystem and network operations belong in crypto/keychain.rs (side-effect layer) \
-                 or in the calling module, not in the pure encrypt/decrypt functions."
-            );
-        }
+        assert!(
+            !source.contains(pattern),
+            "VIOLATION: Crypto purity — crypto/mod.rs must contain only pure functions\n\
+             FOUND: import or use of `{pattern}` in src/crypto/mod.rs\n\
+             HOW TO FIX: Remove the `{pattern}` usage from crypto/mod.rs. \
+             Filesystem and network operations belong in crypto/keychain.rs (side-effect layer) \
+             or in the calling module, not in the pure encrypt/decrypt functions."
+        );
     }
 }
 
@@ -229,15 +228,14 @@ fn arch_03_no_network_crates_in_dependencies() {
 
     for section in &["dependencies", "dev-dependencies"] {
         for crate_name in dep_names(&cargo, section) {
-            if NETWORK_CRATES.contains(&crate_name.as_str()) {
-                panic!(
-                    "VIOLATION: Network-free constraint — sub-swap must have no network or async-runtime crates\n\
-                     FOUND: `{crate_name}` in [{section}] of Cargo.toml\n\
-                     HOW TO FIX: Remove `{crate_name}` from Cargo.toml [{section}]. \
-                     sub-swap is strictly offline. If HTTP or async behavior is needed, \
-                     use synchronous alternatives or reconsider the design constraint."
-                );
-            }
+            assert!(
+                !NETWORK_CRATES.contains(&crate_name.as_str()),
+                "VIOLATION: Network-free constraint — sub-swap must have no network or async-runtime crates\n\
+                 FOUND: `{crate_name}` in [{section}] of Cargo.toml\n\
+                 HOW TO FIX: Remove `{crate_name}` from Cargo.toml [{section}]. \
+                 sub-swap is strictly offline. If HTTP or async behavior is needed, \
+                 use synchronous alternatives or reconsider the design constraint."
+            );
         }
     }
 }

@@ -323,14 +323,14 @@ fn cmd_config(paths: &Paths, action: ConfigAction) -> Result<()> {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 fn format_config_for_display(config: &AppConfig) -> String {
-    let backend = if !config.encryption_enabled {
-        "unconfigured"
-    } else {
+    let backend = if config.encryption_enabled {
         match config.key_backend {
             Some(KeyBackend::Native) => "native",
             Some(KeyBackend::Passphrase) => "passphrase",
             None => "unconfigured",
         }
+    } else {
+        "unconfigured"
     };
 
     format!(

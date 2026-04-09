@@ -98,7 +98,7 @@ mod tests {
             SubSwapError::CodexRunning(pids) => {
                 assert_eq!(pids, vec![12345, 67890]);
             }
-            other => panic!("Expected CodexRunning, got: {:?}", other),
+            other => panic!("Expected CodexRunning, got: {other:?}"),
         }
     }
 

@@ -69,8 +69,8 @@ mod tests {
     use crate::error::SubSwapError;
 
     const EXPECTED_FIXED_DERIVED_KEY: [u8; 32] = [
-        106, 209, 10, 249, 127, 23, 68, 17, 155, 215, 19, 92, 133, 18, 29, 197, 137, 121, 79, 156, 93,
-        100, 98, 0, 184, 173, 77, 107, 236, 241, 80, 132,
+        106, 209, 10, 249, 127, 23, 68, 17, 155, 215, 19, 92, 133, 18, 29, 197, 137, 121, 79, 156,
+        93, 100, 98, 0, 184, 173, 77, 107, 236, 241, 80, 132,
     ];
 
     fn default_test_params() -> PassphraseParams {
@@ -127,7 +127,7 @@ mod tests {
 
     #[test]
     fn test_decode_salt_b64_rejects_wrong_length() {
-        let encoded_short = STANDARD.encode(&[1u8, 2, 3, 4, 5]);
+        let encoded_short = STANDARD.encode([1u8, 2, 3, 4, 5]);
         let result = decode_salt_b64(&encoded_short);
         match result {
             Err(SubSwapError::Crypto(msg)) => {

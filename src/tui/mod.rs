@@ -79,7 +79,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, paths: &Paths) -> Result<()> 
                     handle_input_note(&mut state, paths, key.code)?;
                 }
                 AppScreen::InputPassphrase => {
-                    handle_input_passphrase(&mut state, paths, key.code)?;
+                    handle_input_passphrase(&mut state, paths, key.code);
                 }
                 AppScreen::ViewDecrypt => {
                     handle_view_decrypt(&mut state, key.code);
@@ -512,7 +512,7 @@ fn handle_input_note(state: &mut AppState, paths: &Paths, code: KeyCode) -> Resu
     Ok(())
 }
 
-fn handle_input_passphrase(state: &mut AppState, paths: &Paths, code: KeyCode) -> Result<()> {
+fn handle_input_passphrase(state: &mut AppState, paths: &Paths, code: KeyCode) {
     match code {
         KeyCode::Enter => {
             let action = state.pending_action;
@@ -567,7 +567,6 @@ fn handle_input_passphrase(state: &mut AppState, paths: &Paths, code: KeyCode) -
         }
         _ => {}
     }
-    Ok(())
 }
 
 fn do_add_profile(
