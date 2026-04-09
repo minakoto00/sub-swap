@@ -12,8 +12,8 @@ use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph};
 use ratatui::Terminal;
 
-use crate::config::AppConfig;
-use crate::crypto::keychain::{get_or_default_key, OsKeyStore};
+use crate::config::{AppConfig, KeyBackend};
+use crate::crypto::keychain::OsKeyStore;
 use crate::error::{Result, SubSwapError};
 use crate::guard::{CodexGuard, OsGuard};
 use crate::paths::Paths;
@@ -77,6 +77,9 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, paths: &Paths) -> Result<()> 
                 }
                 AppScreen::InputNote => {
                     handle_input_note(&mut state, paths, key.code)?;
+                }
+                AppScreen::InputPassphrase => {
+                    handle_input_passphrase(&mut state, paths, key.code)?;
                 }
                 AppScreen::ViewDecrypt => {
                     handle_view_decrypt(&mut state, key.code);
@@ -145,8 +148,11 @@ fn handle_main(state: &mut AppState, paths: &Paths, code: KeyCode) -> Result<()>
         }
         KeyCode::Char('v') => {
             if state.selected_name().is_some() {
-                state.pending_action = Some(Action::View);
-                handle_view(state, paths)?;
+                let Some(config) = load_runtime_config_or_prompt(paths, state, Action::View, None)?
+                else {
+                    return Ok(());
+                };
+                handle_view(state, paths, &config)?;
             }
         }
         _ => {}
@@ -154,15 +160,49 @@ fn handle_main(state: &mut AppState, paths: &Paths, code: KeyCode) -> Result<()>
     Ok(())
 }
 
-fn handle_view(state: &mut AppState, paths: &Paths) -> Result<()> {
+fn begin_passphrase_prompt(state: &mut AppState, action: Action, staged_input: Option<String>) {
+    state.pending_action = Some(action);
+    state.passphrase_buffer.clear();
+    state.staged_input = staged_input;
+    state.screen = AppScreen::InputPassphrase;
+}
+
+fn cancel_passphrase_prompt(state: &mut AppState) {
+    state.passphrase_buffer.clear();
+    state.staged_input = None;
+    state.screen = AppScreen::Main;
+}
+
+fn load_runtime_config_or_prompt(
+    paths: &Paths,
+    state: &mut AppState,
+    action: Action,
+    staged_input: Option<String>,
+) -> Result<Option<AppConfig>> {
+    let config = AppConfig::load(paths)?;
+    if matches!(config.key_backend, Some(KeyBackend::Passphrase))
+        && std::env::var("SUB_SWAP_PASSPHRASE").is_err()
+    {
+        begin_passphrase_prompt(state, action, staged_input);
+        return Ok(None);
+    }
+    Ok(Some(config))
+}
+
+fn resolve_runtime_key(config: &AppConfig, state: &AppState) -> Result<[u8; 32]> {
+    let passphrase = std::env::var("SUB_SWAP_PASSPHRASE")
+        .ok()
+        .or_else(|| Some(state.passphrase_buffer.clone()));
+    crate::key::resolve_key(config, &OsKeyStore::new(), passphrase.as_deref())
+}
+
+fn handle_view(state: &mut AppState, paths: &Paths, config: &AppConfig) -> Result<()> {
     let Some(n) = state.selected_name() else {
         return Ok(());
     };
     let name = n.to_string();
 
-    let config = AppConfig::load(paths)?;
-    let keystore = OsKeyStore::new();
-    let key = get_or_default_key(&keystore, config.encryption_enabled)?;
+    let key = resolve_runtime_key(config, state)?;
 
     match switch::decrypt_profile_to_stdout(paths, &name, &key) {
         Ok((auth_str, config_str)) => {
@@ -171,9 +211,12 @@ fn handle_view(state: &mut AppState, paths: &Paths) -> Result<()> {
             state.decrypt_output = Some(output);
             state.scroll_offset = 0;
             state.screen = AppScreen::ViewDecrypt;
+            state.pending_action = None;
         }
         Err(e) => {
             state.message = Some(format!("Error: {e}"));
+            state.screen = AppScreen::Main;
+            state.pending_action = None;
         }
     }
 
@@ -227,7 +270,11 @@ fn handle_confirm_switch(state: &mut AppState, paths: &Paths, code: KeyCode) -> 
                 Ok(()) => {}
             }
 
-            do_switch(state, paths, &name)?;
+            let Some(config) = load_runtime_config_or_prompt(paths, state, Action::Switch, None)?
+            else {
+                return Ok(());
+            };
+            do_switch(state, paths, &name, &config)?;
         }
         KeyCode::Char('n') | KeyCode::Esc => {
             state.screen = AppScreen::Main;
@@ -246,7 +293,11 @@ fn handle_force_switch(state: &mut AppState, paths: &Paths, code: KeyCode) -> Re
                 return Ok(());
             };
             let name = n.to_string();
-            do_switch(state, paths, &name)?;
+            let Some(config) = load_runtime_config_or_prompt(paths, state, Action::Switch, None)?
+            else {
+                return Ok(());
+            };
+            do_switch(state, paths, &name, &config)?;
         }
         KeyCode::Char('n') | KeyCode::Esc => {
             state.screen = AppScreen::Main;
@@ -258,10 +309,8 @@ fn handle_force_switch(state: &mut AppState, paths: &Paths, code: KeyCode) -> Re
     Ok(())
 }
 
-fn do_switch(state: &mut AppState, paths: &Paths, name: &str) -> Result<()> {
-    let config = AppConfig::load(paths)?;
-    let keystore = OsKeyStore::new();
-    let key = get_or_default_key(&keystore, config.encryption_enabled)?;
+fn do_switch(state: &mut AppState, paths: &Paths, name: &str, config: &AppConfig) -> Result<()> {
+    let key = resolve_runtime_key(config, state)?;
 
     match switch::switch_profile(paths, name, &key, config.encryption_enabled) {
         Ok(()) => {
@@ -348,34 +397,16 @@ fn handle_input_name(state: &mut AppState, paths: &Paths, code: KeyCode) -> Resu
 
             match state.pending_action {
                 Some(Action::Add) => {
-                    let config = AppConfig::load(paths)?;
-                    let keystore = OsKeyStore::new();
-                    let key = get_or_default_key(&keystore, config.encryption_enabled)?;
-                    let mut store = ProfileStore::load_or_init(paths)?;
-
-                    match switch::add_profile_from_codex(
+                    let Some(config) = load_runtime_config_or_prompt(
                         paths,
-                        &mut store,
-                        &name,
-                        None,
-                        &key,
-                        config.encryption_enabled,
-                    ) {
-                        Ok(()) => {
-                            let store = ProfileStore::load(paths)?;
-                            state.profile_names = store
-                                .index
-                                .names()
-                                .into_iter()
-                                .map(ToString::to_string)
-                                .collect();
-                            state.active_profile.clone_from(&store.index.active_profile);
-                            state.message = Some(format!("Added '{name}'."));
-                        }
-                        Err(e) => {
-                            state.message = Some(format!("Error: {e}"));
-                        }
-                    }
+                        state,
+                        Action::Add,
+                        Some(name.clone()),
+                    )?
+                    else {
+                        return Ok(());
+                    };
+                    do_add_profile(state, paths, &name, &config)?;
                 }
                 Some(Action::Rename) => {
                     if let Err(e) = crate::error::validate_profile_name(&name) {
@@ -481,6 +512,102 @@ fn handle_input_note(state: &mut AppState, paths: &Paths, code: KeyCode) -> Resu
     Ok(())
 }
 
+fn handle_input_passphrase(state: &mut AppState, paths: &Paths, code: KeyCode) -> Result<()> {
+    match code {
+        KeyCode::Enter => {
+            let action = state.pending_action;
+            let staged_input = state.staged_input.clone();
+            let result = (|| -> Result<()> {
+                let config = AppConfig::load(paths)?;
+                match action {
+                    Some(Action::Switch) => {
+                        let Some(n) = state.selected_name() else {
+                            state.screen = AppScreen::Main;
+                            state.pending_action = None;
+                            return Ok(());
+                        };
+                        let name = n.to_string();
+                        do_switch(state, paths, &name, &config)
+                    }
+                    Some(Action::Add) => {
+                        let Some(name) = staged_input.as_deref() else {
+                            state.screen = AppScreen::Main;
+                            state.pending_action = None;
+                            return Ok(());
+                        };
+                        do_add_profile(state, paths, name, &config)
+                    }
+                    Some(Action::View) => handle_view(state, paths, &config),
+                    _ => {
+                        state.screen = AppScreen::Main;
+                        state.pending_action = None;
+                        Ok(())
+                    }
+                }
+            })();
+
+            state.passphrase_buffer.clear();
+            state.staged_input = None;
+
+            if let Err(e) = result {
+                state.screen = AppScreen::Main;
+                state.pending_action = None;
+                state.message = Some(format!("Error: {e}"));
+            }
+        }
+        KeyCode::Esc => {
+            cancel_passphrase_prompt(state);
+            state.pending_action = None;
+        }
+        KeyCode::Backspace => {
+            state.passphrase_buffer.pop();
+        }
+        KeyCode::Char(c) => {
+            state.passphrase_buffer.push(c);
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn do_add_profile(
+    state: &mut AppState,
+    paths: &Paths,
+    name: &str,
+    config: &AppConfig,
+) -> Result<()> {
+    let key = resolve_runtime_key(config, state)?;
+    let mut store = ProfileStore::load_or_init(paths)?;
+
+    match switch::add_profile_from_codex(
+        paths,
+        &mut store,
+        name,
+        None,
+        &key,
+        config.encryption_enabled,
+    ) {
+        Ok(()) => {
+            let store = ProfileStore::load(paths)?;
+            state.profile_names = store
+                .index
+                .names()
+                .into_iter()
+                .map(ToString::to_string)
+                .collect();
+            state.active_profile.clone_from(&store.index.active_profile);
+            state.message = Some(format!("Added '{name}'."));
+        }
+        Err(e) => {
+            state.message = Some(format!("Error: {e}"));
+        }
+    }
+
+    state.screen = AppScreen::Main;
+    state.pending_action = None;
+    Ok(())
+}
+
 // ── Rendering ─────────────────────────────────────────────────────────────────
 
 fn render(f: &mut Frame, state: &AppState, store: &ProfileStore) {
@@ -502,6 +629,10 @@ fn render(f: &mut Frame, state: &AppState, store: &ProfileStore) {
                 area,
                 "Enter note (Enter to save, Esc to cancel): ",
             );
+        }
+        AppScreen::InputPassphrase => {
+            render_main_layout(f, state, store, area);
+            render_passphrase_overlay(f, state, area);
         }
         AppScreen::ConfirmSwitch => {
             render_main_layout(f, state, store, area);
@@ -616,11 +747,26 @@ fn render_status_bar(f: &mut Frame, state: &AppState, area: Rect) {
 }
 
 fn render_input_overlay(f: &mut Frame, state: &AppState, area: Rect, prompt: &str) {
+    render_value_overlay(f, area, prompt, &state.input_buffer, Color::White);
+}
+
+fn render_passphrase_overlay(f: &mut Frame, state: &AppState, area: Rect) {
+    let masked = "*".repeat(state.passphrase_buffer.chars().count());
+    render_value_overlay(
+        f,
+        area,
+        "Enter passphrase (Enter to submit, Esc to cancel): ",
+        &masked,
+        Color::White,
+    );
+}
+
+fn render_value_overlay(f: &mut Frame, area: Rect, prompt: &str, value: &str, color: Color) {
     let input_area = centered_rect(60, 5, area);
-    let content = format!("{}{}", prompt, state.input_buffer);
+    let content = format!("{prompt}{value}");
     let paragraph = Paragraph::new(content)
         .block(Block::default().borders(Borders::ALL))
-        .style(Style::default().fg(Color::White));
+        .style(Style::default().fg(color));
     f.render_widget(paragraph, input_area);
 }
 
@@ -751,5 +897,31 @@ mod tests {
         handle_view_decrypt(&mut state, KeyCode::Char('x'));
         assert_eq!(state.scroll_offset, 3);
         assert_eq!(state.screen, AppScreen::ViewDecrypt);
+    }
+
+    #[test]
+    fn test_begin_passphrase_prompt_switches_screen() {
+        let mut index = ProfileIndex::default();
+        index.add(Profile::new("test", None));
+        let mut state = AppState::from_index(&index);
+
+        begin_passphrase_prompt(&mut state, Action::View, None);
+
+        assert_eq!(state.screen, AppScreen::InputPassphrase);
+        assert_eq!(state.pending_action, Some(Action::View));
+    }
+
+    #[test]
+    fn test_cancel_passphrase_prompt_clears_buffer() {
+        let mut index = ProfileIndex::default();
+        index.add(Profile::new("test", None));
+        let mut state = AppState::from_index(&index);
+
+        begin_passphrase_prompt(&mut state, Action::View, None);
+        state.passphrase_buffer = "secret".to_string();
+        cancel_passphrase_prompt(&mut state);
+
+        assert_eq!(state.screen, AppScreen::Main);
+        assert!(state.passphrase_buffer.is_empty());
     }
 }

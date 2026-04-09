@@ -7,6 +7,7 @@ pub enum AppScreen {
     ConfirmDelete,
     InputName,
     InputNote,
+    InputPassphrase,
     ViewDecrypt,
     ForceSwitch,
 }
@@ -28,6 +29,8 @@ pub struct AppState {
     pub active_profile: Option<String>,
     pub pending_action: Option<Action>,
     pub input_buffer: String,
+    pub passphrase_buffer: String,
+    pub staged_input: Option<String>,
     pub message: Option<String>,
     pub decrypt_output: Option<String>,
     pub scroll_offset: u16,
@@ -46,6 +49,8 @@ impl AppState {
             active_profile,
             pending_action: None,
             input_buffer: String::new(),
+            passphrase_buffer: String::new(),
+            staged_input: None,
             message: None,
             decrypt_output: None,
             scroll_offset: 0,
@@ -99,5 +104,11 @@ mod tests {
     fn test_from_index_collects_sorted_names() {
         let state = AppState::from_index(&test_index());
         assert_eq!(state.profile_names, vec!["personal", "work"]);
+    }
+
+    #[test]
+    fn test_from_index_initializes_empty_passphrase_buffer() {
+        let state = AppState::from_index(&test_index());
+        assert!(state.passphrase_buffer.is_empty());
     }
 }
