@@ -301,6 +301,8 @@ fn cmd_config(paths: &Paths, action: ConfigAction) -> Result<()> {
                             crate::key::resolve_key(&config, &keystore, passphrase.as_deref())?;
                         toggle_all_profiles(paths, &key_bytes, false)?;
                         config.encryption_enabled = false;
+                        config.key_backend = None;
+                        config.passphrase_kdf = None;
                         config.save(paths)?;
                     }
 
@@ -321,10 +323,14 @@ fn cmd_config(paths: &Paths, action: ConfigAction) -> Result<()> {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 fn format_config_for_display(config: &AppConfig) -> String {
-    let backend = match config.key_backend {
-        Some(KeyBackend::Native) => "native",
-        Some(KeyBackend::Passphrase) => "passphrase",
-        None => "unconfigured",
+    let backend = if !config.encryption_enabled {
+        "unconfigured"
+    } else {
+        match config.key_backend {
+            Some(KeyBackend::Native) => "native",
+            Some(KeyBackend::Passphrase) => "passphrase",
+            None => "unconfigured",
+        }
     };
 
     format!(
@@ -408,5 +414,18 @@ mod tests {
         let output = format_config_for_display(&config);
         assert!(output.contains("encryption_enabled: true"));
         assert!(output.contains("key_backend: native"));
+    }
+
+    #[test]
+    fn test_format_config_show_uses_unconfigured_backend_when_disabled() {
+        let config = AppConfig {
+            encryption_enabled: false,
+            key_backend: Some(KeyBackend::Native),
+            passphrase_kdf: None,
+        };
+
+        let output = format_config_for_display(&config);
+        assert!(output.contains("encryption_enabled: false"));
+        assert!(output.contains("key_backend: unconfigured"));
     }
 }
