@@ -88,7 +88,8 @@ jobs:
           $Archive = "sub-swap-${env:GITHUB_REF_NAME}-${{ matrix.target }}.zip"
           Compress-Archive -Path "target\${{ matrix.target }}\release\sub-swap.exe" -DestinationPath $Archive
           $Hash = (Get-FileHash -Algorithm SHA256 $Archive).Hash.ToLower()
-          "$Hash  $Archive" | Out-File -Encoding ascii "$Archive.sha256"
+          # Write <hash>  <filename>\n with a plain LF so `shasum -c` on Linux/macOS consumes it cleanly.
+          [System.IO.File]::WriteAllText("$PWD/$Archive.sha256", "$Hash  $Archive`n")
           "ARCHIVE=$Archive" | Out-File -Encoding ascii -Append $env:GITHUB_ENV
 
       - name: Upload build artifacts
