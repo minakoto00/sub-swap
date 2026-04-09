@@ -18,23 +18,43 @@ Manage multiple Codex profiles from your terminal. Switch subscriptions, encrypt
 
 ### Prebuilt Binaries
 
-Download the latest binary for your platform from [GitHub Releases](https://github.com/minakoto00/sub-swap/releases).
+Download the archive for your target from [GitHub Releases](https://github.com/minakoto00/sub-swap/releases). macOS and Linux builds ship as `.tar.gz`; Windows builds ship as `.zip`.
 
-**Always verify the SHA-256 checksum before running the binary:**
+**1. Verify the archive before running anything.** Every release archive is covered by a Sigstore-backed GitHub build provenance attestation, which proves it was built by this repository's release workflow:
 
 ```bash
-# Compare against the checksum published in the release notes
-sha256sum sub-swap-<version>-<platform>.tar.gz
-# or on macOS:
-shasum -a 256 sub-swap-<version>-<platform>.tar.gz
+gh attestation verify sub-swap-v<version>-<target>.tar.gz \
+  --repo minakoto00/sub-swap
 ```
 
-Then install:
+The published `.sha256` sidecar is a convenience for catching transit corruption; it is not a provenance check. If you only have time for one check, run `gh attestation verify`.
+
+**2. Extract the archive.**
+
+macOS / Linux:
+
+```bash
+tar xzf sub-swap-v<version>-<target>.tar.gz
+```
+
+Windows (PowerShell):
+
+```powershell
+Expand-Archive sub-swap-v<version>-x86_64-pc-windows-msvc.zip -DestinationPath .
+```
+
+**3. Install onto your PATH.**
+
+macOS / Linux:
 
 ```bash
 chmod +x sub-swap
 sudo mv sub-swap /usr/local/bin/
 ```
+
+Windows: move `sub-swap.exe` into a directory on `%PATH%` (e.g. `%LOCALAPPDATA%\Programs\sub-swap\`).
+
+> **First-launch warnings:** sub-swap releases are not notarized with Apple Developer ID and are not signed with an EV Authenticode certificate, so macOS Gatekeeper and Windows SmartScreen will warn on the first launch. Run `gh attestation verify` first, then approve the OS prompt manually.
 
 ### Build from Source
 

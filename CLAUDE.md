@@ -43,3 +43,7 @@ sub-swap manages multiple `~/.codex/` profiles (auth.json + config.toml) with AE
 | [docs/decisions/002-os-keychain.md](docs/decisions/002-os-keychain.md) | ADR: OS keychain for encryption key storage |
 | [docs/decisions/003-path-injection.md](docs/decisions/003-path-injection.md) | ADR: path injection for test isolation |
 | [docs/decisions/004-offline-only.md](docs/decisions/004-offline-only.md) | ADR: strictly offline constraint |
+
+## Develop guidelines
+- Analyze the README.md file after you complete a feature, fix bugs, or make improvements to see if it needs to be updated.
+- Keep the README.md concise and human facing, avoid long blocks of subjective descriptions of the features and excessive self-marketing.
