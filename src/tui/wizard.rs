@@ -1,6 +1,6 @@
 use std::io::{self, BufRead, Write};
 
-use crate::config::AppConfig;
+use crate::config::{AppConfig, KeyBackend};
 use crate::crypto;
 use crate::crypto::keychain::{KeyStore, OsKeyStore};
 use crate::error::{validate_profile_name, Result};
@@ -103,6 +103,8 @@ fn setup_encryption(paths: &Paths) -> Result<([u8; 32], bool)> {
 
         let config = AppConfig {
             encryption_enabled: true,
+            key_backend: Some(KeyBackend::Native),
+            passphrase_kdf: None,
         };
         config.save(paths)?;
 
@@ -114,6 +116,8 @@ fn setup_encryption(paths: &Paths) -> Result<([u8; 32], bool)> {
 
         let config = AppConfig {
             encryption_enabled: false,
+            key_backend: None,
+            passphrase_kdf: None,
         };
         config.save(paths)?;
 
