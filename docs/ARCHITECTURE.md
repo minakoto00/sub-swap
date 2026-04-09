@@ -4,7 +4,7 @@
 
 | Rule | Enforced By | Consequence of Violation |
 |------|-------------|--------------------------|
-| Foundation modules import only `std`/external crates (exception: `paths` may import `error`) | `tests/arch.rs` arch_01 tests (9 tests) | `cargo test` fails with VIOLATION/FOUND/HOW TO FIX message |
+| Foundation modules import only `std`/external crates (exception: `paths` may import `error`) | `tests/arch.rs` arch_01 tests (10 tests total across foundation/core/business boundary checks) | `cargo test` fails with VIOLATION/FOUND/HOW TO FIX message |
 | Core modules import only Foundation | `tests/arch.rs` arch_01 tests | `cargo test` fails |
 | Business modules import Core + Foundation; never Orchestration or `guard` | `tests/arch.rs` arch_01 tests | `cargo test` fails |
 | Orchestration modules may import anything | No restriction | N/A |
@@ -20,13 +20,13 @@
 ## Module Layout
 
 ```
-Orchestration    cli    tui/mod    tui/wizard    tui/widgets
-                  |        |           |              |
+Orchestration    cli    key    tui/mod    tui/wizard    tui/widgets
+                  |      |        |           |              |
 Business        profile/mod   profile/store   profile/switch
                   |               |                |
-Core           crypto/mod  crypto/keychain  config  guard
-                  |               |            |      |
-Foundation     error                        paths
+Core           crypto/mod  crypto/keychain  crypto/passphrase  config  guard
+                  |               |                |              |      |
+Foundation     error                                         paths
 ```
 
 ## Dependency Map
@@ -39,11 +39,13 @@ The following table is the verified source of truth for current module import re
 | `paths` | `error` | Foundation |
 | `crypto/mod.rs` | `error` | Core |
 | `crypto/keychain.rs` | `error` | Core |
+| `crypto/passphrase.rs` | `error` | Core |
 | `config` | `error`, `paths` | Core |
 | `guard` | `error` | Core |
 | `profile/mod.rs` | `error` | Business |
 | `profile/store.rs` | `error`, `paths`, `profile` | Business |
 | `profile/switch.rs` | `crypto`, `error`, `paths`, `profile` | Business |
+| `key.rs` | `config`, `crypto`, `error` | Orchestration |
 | `cli` | `config`, `crypto`, `error`, `guard`, `paths`, `profile` | Orchestration |
 | `tui/mod.rs` | `config`, `crypto`, `error`, `guard`, `paths`, `profile` | Orchestration |
 | `tui/wizard.rs` | `config`, `crypto`, `error`, `paths`, `profile` | Orchestration |
@@ -66,12 +68,13 @@ The following table is the verified source of truth for current module import re
 
 ### Core
 
-**Modules:** `crypto/mod.rs`, `crypto/keychain.rs`, `config`, `guard`
+**Modules:** `crypto/mod.rs`, `crypto/keychain.rs`, `crypto/passphrase.rs`, `config`, `guard`
 
-**Responsibility:** Provide reusable infrastructure that business logic depends on — encryption, key management, configuration, and process detection.
+**Responsibility:** Provide reusable infrastructure that business logic depends on — encryption primitives, key derivation, keychain access, configuration, and process detection.
 
 - `crypto/mod.rs` — Pure AES-256-GCM encrypt/decrypt/key-generation functions. Imports `error` only. No filesystem I/O (enforced by arch_02).
 - `crypto/keychain.rs` — OS keychain abstraction (`KeyStore` trait, `OsKeyStore`, `MockKeyStore`). Imports `error` only. Exempt from purity constraint — side effects are its purpose.
+- `crypto/passphrase.rs` — Pure Argon2id passphrase derivation and salt metadata helpers. Imports `error` only. No backend selection or I/O; this module exists only to turn passphrase + parameters into key bytes.
 - `config` — Application configuration (`AppConfig`). Imports `error`, `paths`.
 - `guard` — Process detection abstraction (`CodexGuard` trait, `OsGuard`, `MockGuard`). Imports `error` only.
 
@@ -91,11 +94,12 @@ The following table is the verified source of truth for current module import re
 
 ### Orchestration
 
-**Modules:** `cli`, `tui/mod.rs`, `tui/wizard.rs`, `tui/widgets.rs`
+**Modules:** `cli`, `key.rs`, `tui/mod.rs`, `tui/wizard.rs`, `tui/widgets.rs`
 
-**Responsibility:** User interface layers — the two entry modes into sub-swap.
+**Responsibility:** User-facing entry points and orchestration helpers that choose how lower-level services are combined.
 
 - `cli` — 8 subcommands dispatched via clap derive macros. Thin layer that orchestrates business logic.
+- `key.rs` — Backend selection helper shared by CLI/TUI flows. It chooses between native OS key storage and passphrase derivation, but delegates the actual derivation to `crypto/passphrase.rs` and the actual keychain I/O to `crypto/keychain.rs`.
 - `tui/mod.rs` — ratatui interactive menu with a 7-screen state machine (`AppScreen` enum). Event loop reads keys, dispatches to per-screen handlers, re-renders.
 - `tui/wizard.rs` — First-launch wizard using simple stdin/stdout prompts (not ratatui). Triggered when `profiles.json` does not exist.
 - `tui/widgets.rs` — Reusable TUI widget definitions. Imports `profile` only.
@@ -118,7 +122,7 @@ HOW TO FIX: [1-2 actionable steps an agent can follow without additional context
 - `assert_no_crate_import(file, source, forbidden)` scans each line for `use crate::{forbidden}::`, `use crate::{forbidden};`, or `use crate::{forbidden{` patterns and panics on the first match.
 - `dep_names(table)` parses `Cargo.toml` via `toml::Table` to extract dependency crate names from `[dependencies]` and `[dev-dependencies]` sections.
 
-### All 11 structural test functions
+### All 12 structural test functions
 
 | Test | What It Checks |
 |------|----------------|
@@ -126,6 +130,7 @@ HOW TO FIX: [1-2 actionable steps an agent can follow without additional context
 | `arch_01_foundation_paths_imports_only_error` | `paths` cannot import `crypto`, `config`, `guard`, `profile`, `cli`, `tui` |
 | `arch_01_core_crypto_imports_only_error` | `crypto/mod.rs` cannot import `paths`, `config`, `guard`, `profile`, `cli`, `tui` |
 | `arch_01_core_keychain_imports_only_error` | `crypto/keychain.rs` cannot import `paths`, `config`, `guard`, `profile`, `cli`, `tui` |
+| `arch_01_core_passphrase_imports_only_error` | `crypto/passphrase.rs` cannot import `paths`, `config`, `guard`, `profile`, `cli`, `tui` |
 | `arch_01_core_config_imports_only_error_and_paths` | `config` cannot import `profile`, `cli`, `tui`, `guard`, `crypto` |
 | `arch_01_core_guard_imports_only_error` | `guard` cannot import `profile`, `cli`, `tui`, `config`, `crypto`, `paths` |
 | `arch_01_business_profile_mod_no_orchestration` | `profile/mod.rs` cannot import `cli`, `tui`, `guard` |

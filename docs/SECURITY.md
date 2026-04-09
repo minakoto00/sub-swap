@@ -5,7 +5,7 @@
 | Constraint | Implementation | Verified By |
 |------------|----------------|-------------|
 | Inactive profiles encrypted with AES-256-GCM at rest | `src/crypto/mod.rs` encrypt/decrypt | Unit tests in `crypto::tests` |
-| Encryption key never written to filesystem | `src/crypto/keychain.rs` stores in OS keychain | `KeyStore` trait + `MockKeyStore` in tests |
+| Encryption key never written to filesystem | `src/key.rs` resolves a native OS-keystore key by default, or derives a passphrase key without persisting the key bytes | `key::tests`, `crypto::passphrase::tests`, plus manual OS-keychain verification |
 | All files under `~/.sub-swap/` are mode 0600 (Unix) | `#[cfg(unix)]` blocks in `config.rs`, `profile/store.rs`, `profile/switch.rs` | Manual — no automated permission tests |
 | Zero network crates in dependency tree | `Cargo.toml` has no network crates | `tests/arch.rs` arch_03 test |
 | Active profile stays plaintext in `~/.codex/` | Required by Codex to read credentials | N/A — design constraint |
@@ -40,9 +40,11 @@ pub fn decrypt(data: &[u8], key: &[u8; 32]) -> Result<Vec<u8>>
 
 **Key size:** 256-bit (32 bytes)
 
-**Generation:** `generate_key()` using `rand::rng().fill_bytes` (OS CSPRNG). Called once when encryption is first enabled via `sub-swap add` with default settings.
+**Default backend:** Native OS key storage. `AppConfig::default()` sets `key_backend = native`, and legacy boolean-only encrypted configs are migrated on load to explicit native-backend metadata. This includes older macOS installs that previously only stored `encryption_enabled = true`.
 
-**Storage:** Hex-encoded as a 64-character string in the OS keychain via the `keyring` crate.
+**Native backend generation:** `generate_key()` using `rand::rng().fill_bytes` (OS CSPRNG). Called once when encryption is first enabled and native storage is available.
+
+**Native backend storage:** Hex-encoded as a 64-character string in the OS keychain via the `keyring` crate.
 
 **Keychain identifiers:**
 - Service: `"sub-swap"`
@@ -56,20 +58,30 @@ pub fn decrypt(data: &[u8], key: &[u8; 32]) -> Result<Vec<u8>>
 | Linux | secret-service (GNOME Keyring / KWallet) |
 | Windows | Credential Manager |
 
-**Key lifecycle:** The key is generated once on first profile add with encryption enabled, then retrieved from the keychain on every encrypt/decrypt operation. It is never cached in memory between operations.
+**Fallback policy:** On Linux and Windows, setup falls back to the passphrase backend when native key storage is unavailable. The passphrase backend derives the AES key locally with Argon2id instead of storing key bytes in the OS keychain.
+
+**Passphrase metadata on disk:** Only Argon2id salt and parameters are stored in `config.json` for passphrase mode:
+- `salt_b64`
+- `memory_kib`
+- `iterations`
+- `parallelism`
+
+The derived 32-byte encryption key itself is never written to disk.
+
+**Key lifecycle:** Native keys are generated once, then retrieved from the OS keychain on each encrypt/decrypt operation. Passphrase keys are re-derived on demand from the provided passphrase plus the stored Argon2id salt/parameters. Keys are not cached between operations.
 
 **Disabled encryption shortcut:** `get_or_default_key(keystore, needed: bool)` returns a zeroed 32-byte array when `needed` is false, bypassing the keychain call entirely. This supports the `encrypt = false` configuration without breaking the function signature.
 
-**Key loss:** If the OS keychain entry is deleted or the key is otherwise lost, all encrypted profiles become permanently unrecoverable. There is no key backup or escrow mechanism.
+**Key loss:** If the OS keychain entry is deleted or the key is otherwise lost, all natively encrypted profiles become permanently unrecoverable. For passphrase mode, losing the passphrase has the same result. There is no key backup or escrow mechanism.
 
-**Source file:** `src/crypto/keychain.rs`
+**Source files:** `src/crypto/keychain.rs`, `src/crypto/passphrase.rs`, `src/key.rs`, `src/config.rs`
 
 ## Threat Model
 
 ### What Is Protected
 
 - **Inactive credentials encrypted at rest** with AES-256-GCM (confidentiality + integrity). Authentication tags detect tampering.
-- **Encryption key stored in OS keychain, never on filesystem.** Key separation means compromising `~/.sub-swap/` does not expose the key.
+- **Key material never written to disk.** Native mode stores the key in the OS keychain; passphrase mode stores only Argon2id salt/parameters in `config.json`, not the derived key bytes.
 - **All files 0600 on Unix** — owner-only read/write access. Applied via `fs::Permissions::from_mode(0o600)` inside `#[cfg(unix)]` blocks; this is a no-op on Windows.
 - **Zero network attack surface.** No network crates in the dependency tree; enforced mechanically by `tests/arch.rs` arch_03 test.
 - **Path traversal blocked** by `validate_profile_name()` (rejects `/`, `\`, `..`, leading `.`; allows only alphanumeric + `-` + `_`).
@@ -78,7 +90,7 @@ pub fn decrypt(data: &[u8], key: &[u8; 32]) -> Result<Vec<u8>>
 
 - **Active profile credentials in `~/.codex/auth.json` are always plaintext.** Codex must be able to read its own config files; encryption of the active profile is not possible under the current design.
 - **No memory zeroization.** Keys and plaintext exist in heap memory until Rust drops them. They are not explicitly zeroed before deallocation.
-- **No protection against root-level or same-user access.** The OS keychain provides user-level isolation only; a process running as the same user can access the keychain entry.
+- **No protection against root-level or same-user access.** The OS keychain provides user-level isolation only, and a malicious same-user process can still access plaintext active credentials or prompt-captured passphrases.
 - **Key loss = unrecoverable encrypted profiles.** There is no key backup, escrow, or recovery mechanism.
 - **No protection against malicious code running as the same user.** A compromised process with the same UID can read `~/.codex/auth.json` and call keychain APIs.
 - **`profiles.json` is not encrypted** (contains metadata only — profile names and active flag). It is 0600 to restrict access, but the contents themselves are not confidential.
@@ -148,13 +160,30 @@ Security properties are verified by the existing test suite. Key areas covered:
 - `test_decrypt_too_short_data_fails` — data shorter than 28 bytes is rejected before decryption
 - `test_two_encryptions_produce_different_output` — same plaintext encrypts to different ciphertext (random nonce)
 
+**Passphrase derivation** (`src/crypto/passphrase.rs` test module):
+- `test_derive_key_matches_fixed_output` — Argon2id derivation stays stable for fixed inputs
+- `test_derive_key_changes_when_salt_changes` — changing the salt changes the derived key
+- `test_decode_salt_b64_roundtrip` — stored salt metadata round-trips through base64 encoding
+- `test_decode_salt_b64_rejects_malformed_input` / `test_decode_salt_b64_rejects_wrong_length` — malformed or truncated salt metadata is rejected
+- `test_derive_key_rejects_invalid_params` — invalid Argon2id parameters fail closed
+
 **Key management** (`src/crypto/keychain.rs` test module via `MockKeyStore`):
 - `test_mock_keystore_roundtrip` — set_key then get_key returns the same key
 - `test_mock_keystore_get_without_set_fails` — calling get_key before set_key returns an error
+
+**Backend resolution** (`src/key.rs` test module):
+- `test_resolve_key_reads_native_key_from_store` — native backend returns the stored OS-keychain key
+- `test_resolve_key_derives_passphrase_backend` — passphrase backend derives the same key for the same passphrase + KDF metadata
+- `test_resolve_key_passphrase_backend_requires_passphrase` — passphrase mode rejects missing runtime passphrase input
+- `test_initialize_native_backend_is_idempotent` — native initialization reuses an existing stored key
+- `test_initialize_native_backend_propagates_non_missing_key_error` — unexpected native keystore failures surface instead of silently falling back
+- `test_initialize_passphrase_backend_returns_config_and_key` — passphrase initialization returns the KDF metadata plus derived key
 
 **Profile switch atomicity** (`src/profile/switch.rs` test module):
 - `test_switch_updates_codex_files` — target profile appears in `~/.codex/` after switch
 - `test_switch_encrypts_old_profile` — old profile files are encrypted when encrypt=true
 - `test_switch_to_nonexistent_fails` — switching to a missing profile returns `ProfileNotFound`
+
+**Note on real keychain verification:** Automated tests use `MockKeyStore`; real OS keychain integration remains manually verified on the target platform.
 
 **Note on permission testing:** The 0600 file permission constraint (`#[cfg(unix)]`) is not covered by automated tests. Verifying file permissions in a cross-platform test suite requires platform-specific test code. This is a known gap — the implementation is correct but the enforcement is manual.

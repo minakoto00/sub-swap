@@ -136,6 +136,17 @@ fn arch_01_core_keychain_imports_only_error() {
     );
 }
 
+/// Core layer: `crypto/passphrase.rs` may only import `error` — no `paths`, config, guard, or higher.
+#[test]
+fn arch_01_core_passphrase_imports_only_error() {
+    let source = read_source("src/crypto/passphrase.rs");
+    assert_no_crate_import(
+        "src/crypto/passphrase.rs",
+        &source,
+        &["paths", "config", "guard", "profile", "cli", "tui"],
+    );
+}
+
 /// Core layer: `config` may only import `error` and `paths` — no profile, cli, tui, guard, crypto.
 #[test]
 fn arch_01_core_config_imports_only_error_and_paths() {

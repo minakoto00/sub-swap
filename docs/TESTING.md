@@ -11,6 +11,7 @@
 | Unit tests live in `#[cfg(test)] mod tests` inside the source file | Rust convention | Tests for `crypto/mod.rs` go in `src/crypto/mod.rs` |
 | Integration tests use compiled binary via `std::process::Command` | `env!("CARGO_BIN_EXE_sub-swap")` | `cargo test --test integration` builds automatically |
 | Structural tests parse source at runtime | `tests/arch.rs` reads `.rs` files with `std::fs::read_to_string` | See "Adding Architectural Rules" recipe below |
+| Real OS keychain integration is manually verified | Automated tests use `MockKeyStore` instead of the platform keychain | Native backend smoke checks still require platform-specific manual runs |
 
 > **IMPORTANT:** All three test abstractions (`Paths::from_temp`, `MockKeyStore`, `MockGuard`)
 > are gated behind `#[cfg(test)]`. They are only available when running `cargo test`, not in
@@ -113,6 +114,38 @@ mod tests {
 
 ---
 
+## Current Coverage Highlights
+
+### Passphrase derivation tests
+
+**Source:** `src/crypto/passphrase.rs`
+
+These tests cover the pure Argon2id derivation path without touching the filesystem or real keychain:
+
+- `test_derive_key_matches_fixed_output` locks the Argon2id output for a fixed passphrase, salt, and parameter set.
+- `test_derive_key_changes_when_salt_changes` confirms salt uniqueness changes the derived key.
+- `test_decode_salt_b64_roundtrip` verifies the salt metadata format written to config.
+- `test_decode_salt_b64_rejects_malformed_input` and `test_decode_salt_b64_rejects_wrong_length` reject invalid on-disk salt metadata.
+- `test_derive_key_rejects_invalid_params` ensures invalid Argon2id parameters fail cleanly.
+
+### Backend resolution tests
+
+**Source:** `src/key.rs`
+
+These tests cover the orchestration layer that chooses the key backend:
+
+- `test_resolve_key_returns_zero_key_when_encryption_disabled`
+- `test_resolve_key_reads_native_key_from_store`
+- `test_resolve_key_derives_passphrase_backend`
+- `test_resolve_key_passphrase_backend_requires_passphrase`
+- `test_initialize_native_backend_is_idempotent`
+- `test_initialize_native_backend_propagates_non_missing_key_error`
+- `test_initialize_passphrase_backend_returns_config_and_key`
+
+They verify backend selection and metadata handling in `src/key.rs` while keeping the actual crypto and keychain details isolated in their own modules.
+
+---
+
 ## How to Add a New Test
 
 1. **Choose test location:**
@@ -175,6 +208,8 @@ To add a new network crate to the deny-list:
 |-----------|----------|-------------|
 | Unit tests (all) | `src/**/*.rs` inside `#[cfg(test)] mod tests` | `cargo test --lib` |
 | Unit tests (module) | e.g., `src/crypto/mod.rs` | `cargo test --lib crypto::tests` |
+| Unit tests (passphrase derivation) | `src/crypto/passphrase.rs` | `cargo test --lib crypto::passphrase::tests` |
+| Unit tests (backend resolution) | `src/key.rs` | `cargo test --lib key::tests` |
 | Unit tests (single) | e.g., `src/crypto/mod.rs` | `cargo test --lib crypto::tests::test_encrypt_then_decrypt_roundtrip` |
 | Integration tests | `tests/integration.rs` | `cargo test --test integration` |
 | Structural tests | `tests/arch.rs` | `cargo test --test arch` |
